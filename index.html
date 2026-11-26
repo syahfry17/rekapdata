@@ -1,0 +1,234 @@
+<!DOCTYPE html><html lang="id"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SIPEMILU LITE</title><style>
+*{box-sizing:border-box}body{margin:0;font-family:system-ui;background:#f1f5f9;color:#0f172a}
+header{background:#0f2537;color:#fff;padding:14px 16px;position:sticky;top:0;display:flex;justify-content:space-between;align-items:center}
+header b{font-size:17px}header span{color:#fbbf24;font-size:12px}
+.wrap{max-width:900px;margin:0 auto;padding:12px}.card{background:#fff;border-radius:14px;padding:14px;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,.06)}
+input,select{width:100%;padding:11px;border:1px solid #cbd5e1;border-radius:10px;margin:5px 0;font-size:15px}
+button{padding:11px 14px;border:0;border-radius:10px;background:#0f2537;color:#fff;font-weight:700;cursor:pointer}
+button.gold{background:#f59e0b;color:#111}button.green{background:#15803d}button.red{background:#dc2626}button.ghost{background:#e2e8f0;color:#111}
+.row{display:flex;gap:8px;flex-wrap:wrap}.row>*{flex:1}.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.stat{background:#0f2537;color:#fff;border-radius:12px;padding:12px;text-align:center}.stat b{font-size:24px;display:block}
+.stat small{color:#fbbf24}table{width:100%;border-collapse:collapse;font-size:14px}th,td{padding:8px;border-bottom:1px solid #e2e8f0;text-align:left}
+.badge{padding:3px 8px;border-radius:20px;font-size:11px;font-weight:800}.final{background:#dcfce7;color:#166534}.draft{background:#fef3c7;color:#92400e}
+.hidden{display:none}.muted{color:#64748b;font-size:13px}.bar{height:12px;background:#e2e8f0;border-radius:99px;overflow:hidden}.bar i{display:block;height:100%;background:#f59e0b}
+img.thumb{width:64px;height:64px;object-fit:cover;border-radius:8px}
+@media(max-width:600px){.grid3{grid-template-columns:1fr}.row{flex-direction:column}}
+</style></head><body>
+<header><div><b>🗳️ SIPEMILU LITE</b><br><span id="sub">Sistem Terisolasi • Saksi & Rekap Desa</span></div>
+<div class="row" style="flex:none"><button id="btnSync" class="ghost hidden" onclick="sync(false)">↻ Sync</button><button id="btnLogin" onclick="showLogin()">Login Petugas</button></div></header>
+<div class="wrap">
+
+<!-- LOGIN -->
+<div id="loginCard" class="card hidden"><h3>Login Petugas</h3>
+<input id="u" placeholder="Username — cth: superadmin"><input id="p" type="password" placeholder="PIN — default superadmin: admin123">
+<input id="url" placeholder="URL Web App Apps Script (https://script.google.com/...)">
+<button class="gold" style="width:100%" onclick="doLogin()">Masuk</button><p class="muted">URL disimpan di HP ini. PIN tidak disimpan.</p></div>
+
+<!-- BANNER ROLE -->
+<div id="banner" class="card hidden"><b id="roleBadge"></b> <span id="roleUser"></span> • <span id="roleScope"></span>
+<div class="row" style="margin-top:10px"><button id="btnUsers" class="hidden" onclick="showUsers()">👥 Kelola Akun</button><button id="btnCfg" class="hidden" onclick="showConfig()">⚙️ Pengaturan</button><button id="btnLog" class="hidden" onclick="showLog()">📜 Log</button><button class="red" onclick="logout()">Keluar</button></div></div>
+
+<!-- REKAP -->
+<div class="card"><h3 style="margin:0">📊 Progres Rekap</h3><p id="progresTxt" class="muted"></p><div class="bar"><i id="progresBar" style="width:0%"></i></div>
+<div class="grid3" style="margin-top:12px"><div class="stat"><small id="p1name">Paslon 01</small><b id="s1">0</b></div><div class="stat"><small id="p2name">Paslon 02</small><b id="s2">0</b></div><div class="stat"><small id="p3name">Paslon 03</small><b id="s3">0</b></div></div>
+<p class="muted" id="totalTxt"></p></div>
+
+<!-- NAVIGASI WILAYAH: Kecamatan > Desa (mirip v3.2 tapi 1 halaman) -->
+<div class="card"><h3 style="margin:0">📍 Wilayah</h3>
+<div class="row"><select id="selKec" onchange="onKec()"><option value="">— Pilih Kecamatan —</option></select>
+<select id="selDesa" onchange="onDesa()"><option value="">— Pilih Desa —</option></select></div>
+<div id="desaView"></div></div>
+
+<!-- PANEL ADMIN: Users / Config / Log -->
+<div id="panelUsers" class="card hidden"><h3>Kelola Akun</h3>
+<input id="nu" placeholder="Username baru"><input id="np" placeholder="PIN baru"><input id="nn" placeholder="Nama tampilan">
+<select id="nr" onchange="isiScope()"><option value="saksi">Saksi TPS</option><option value="desa">Admin Desa</option><option value="kecamatan">Admin Kecamatan</option><option value="super">Super Admin</option></select>
+<select id="ns"></select><button class="green" onclick="addUser()">+ Tambah Akun</button><div id="userList"></div></div>
+
+<div id="panelCfg" class="card hidden"><h3>Pengaturan Kabupaten</h3>
+<input id="cKab" placeholder="Nama Kabupaten"><input id="c1" placeholder="Paslon 01"><input id="c2" placeholder="Paslon 02"><input id="c3" placeholder="Paslon 03">
+<label><input type="checkbox" id="cKec" style="width:auto"> Aktifkan Admin Kecamatan</label><br><br>
+<button class="green" onclick="saveCfg()">Simpan Pengaturan</button></div>
+
+<div id="panelLog" class="card hidden"><h3>Riwayat Aktivitas</h3><div id="logList"></div></div>
+</div>
+
+<script>
+let S={user:null,auth:null,data:[],config:{},users:[],logs:[],kecId:'',desaId:''};
+const URL_KEY='sipemilu_lite_url', AUTH_KEY='sipemilu_lite_auth';
+const $=id=>document.getElementById(id);
+const fmt=n=>Number(n||0).toLocaleString('id-ID');
+const esc=s=>String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;');
+
+// --- API: 1 pintu, sama seperti v3.2 ---
+async function api(action, extra={}){
+  const url=localStorage.getItem(URL_KEY); if(!url) throw new Error('Isi URL Web App dulu di Login.');
+  const res=await fetch(url,{method:'POST', body:JSON.stringify({action, auth:S.auth, ...extra})});
+  const j=await res.json(); if(j.status!=='success') throw new Error(j.message); return j;
+}
+async function sync(showToast=true){
+  try{
+    const j=await api(S.user?'sync':'login');
+    S.user=j.user; S.data=j.data; S.config=j.config; S.users=j.users||[]; S.logs=j.logs||[];
+    render(); if(showToast) alert('Data tersinkron.');
+  }catch(e){ alert(e.message); }
+}
+async function doLogin(){
+  const url=$('url').value.trim(); if(!url) return alert('Isi URL Web App.');
+  localStorage.setItem(URL_KEY,url);
+  S.auth={username:$('u').value.trim(), pin:$('p').value.trim()};
+  try{ const j=await api('login'); S.user=j.user; S.data=j.data; S.config=j.config; S.users=j.users||[]; S.logs=j.logs||[];
+    sessionStorage.setItem(AUTH_KEY, JSON.stringify({user:S.user, auth:S.auth})); render(); }
+  catch(e){ alert(e.message); }
+}
+function showLogin(){ $('loginCard').classList.toggle('hidden'); }
+function logout(){ sessionStorage.removeItem(AUTH_KEY); S.auth=null; S.user=null; render(); }
+
+// --- RENDER ---
+function render(){
+  $('sub').textContent=(S.config.kabupatenName||'Kabupaten')+' • '+(S.user?('Login: '+S.user.displayName):'Belum login — data kosong, login dulu');
+  $('loginCard').classList.toggle('hidden', !!S.user);
+  $('banner').classList.toggle('hidden', !S.user);
+  $('btnSync').classList.toggle('hidden', !S.user);
+  $('btnLogin').textContent=S.user?'Ganti Akun':'Login Petugas';
+  if(S.user){
+    $('roleBadge').textContent=S.user.role.toUpperCase();
+    $('roleUser').textContent=S.user.displayName+' (@'+S.user.username+')';
+    $('roleScope').textContent='Scope: '+(S.user.scopeId||'KABUPATEN');
+    $('btnUsers').classList.toggle('hidden', S.user.role==='saksi');
+    $('btnCfg').classList.toggle('hidden', S.user.role!=='super');
+    $('btnLog').classList.toggle('hidden', S.user.role!=='super');
+  }
+  // Rekap global dari data yang BOLEH dilihat user (sudah difilter server)
+  let tpsTotal=0, tpsIsi=0, a=0,b=0,c=0,sah=0,tdk=0;
+  S.data.forEach(k=>k.desaList.forEach(d=>{ tpsTotal+=d.tpsList.length; d.suaraList.forEach(s=>{ tpsIsi++; a+=s.suara1; b+=s.suara2; c+=s.suara3; sah+=s.totalSah; tdk+=s.tidakSah; }); }));
+  const pct=tpsTotal?Math.round(tpsIsi/tpsTotal*100):0;
+  $('progresTxt').textContent=`${tpsIsi} dari ${tpsTotal} TPS sudah input • ${pct}%`;
+  $('progresBar').style.width=pct+'%'; $('s1').textContent=fmt(a); $('s2').textContent=fmt(b); $('s3').textContent=fmt(c);
+  $('p1name').textContent=S.config.paslon1||'Paslon 01'; $('p2name').textContent=S.config.paslon2||'Paslon 02'; $('p3name').textContent=S.config.paslon3||'Paslon 03';
+  $('totalTxt').textContent=`Total sah: ${fmt(sah)} • Tidak sah: ${fmt(tdk)} • Total: ${fmt(sah+tdk)}`;
+  // Dropdown wilayah
+  $('selKec').innerHTML='<option value="">— Pilih Kecamatan —</option>'+S.data.map(k=>`<option value="${k.id}">${esc(k.nama)}</option>`).join('');
+  if(S.kecId) $('selKec').value=S.kecId;
+  renderDesa();
+}
+function onKec(){ S.kecId=$('selKec').value; S.desaId=''; renderDesa(); }
+function onDesa(){ S.desaId=$('selDesa').value; renderDesa(); }
+function curDesa(){
+  const k=S.data.find(x=>x.id===S.kecId); if(!k) return null;
+  return k.desaList.find(d=>d.id===S.desaId)||null;
+}
+function renderDesa(){
+  const k=S.data.find(x=>x.id===S.kecId);
+  $('selDesa').innerHTML='<option value="">— Pilih Desa —</option>'+(k?k.desaList.map(d=>`<option value="${d.id}">${esc(d.nama)}</option>`).join(''):'');
+  if(S.desaId) $('selDesa').value=S.desaId;
+  const d=curDesa();
+  if(!d){ $('desaView').innerHTML='<p class="muted">Pilih kecamatan & desa untuk lihat TPS, pendukung, dan suara.</p>'; return; }
+  const canEdit=S.user && S.user.role!=='saksi' && S.user.role!=='kecamatan';
+  const tot=d.suaraList.reduce((x,s)=>({a:x.a+s.suara1,b:x.b+s.suara2,c:x.c+s.suara3,sah:x.sah+s.totalSah,tdk:x.tdk+s.tidakSah}),{a:0,b:0,c:0,sah:0,tdk:0});
+  $('desaView').innerHTML=`
+  <h4>${esc(d.nama)} — ${d.tpsList.length} TPS • ${d.pemilihList.length} Pendukung KTP</h4>
+  <p class="muted">Total desa: P1 ${fmt(tot.a)} • P2 ${fmt(tot.b)} • P3 ${fmt(tot.c)} • Sah ${fmt(tot.sah)} • Tidak sah ${fmt(tot.tdk)}</p>
+  ${canEdit?`<div class="row"><button onclick="showFormWilayah('tps')">+ Tambah TPS</button>${S.user.role==='super'?`<button onclick="showFormWilayah('desa')">+ Tambah Desa</button><button onclick="showFormWilayah('kec')">+ Tambah Kecamatan</button>`:''}</div><div id="formWilayah"></div>`:''}
+  <h4>📝 Suara per TPS</h4>
+  <table><tr><th>TPS</th><th>Status</th><th>P1</th><th>P2</th><th>P3</th><th>Sah</th><th>Tdk Sah</th><th>Bukti</th><th>Aksi</th></tr>
+  ${d.tpsList.map(t=>{
+    const s=d.suaraList.find(x=>x.tpsId===t.id);
+    return `<tr><td><b>${esc(t.nama)}</b></td><td>${s?`<span class="badge ${s.status==='Final'?'final':'draft'}">${s.status}</span>`:'<span class="muted">Belum input</span>'}</td>
+    <td>${fmt(s?.suara1)}</td><td>${fmt(s?.suara2)}</td><td>${fmt(s?.suara3)}</td><td>${fmt(s?.totalSah)}</td><td>${fmt(s?.tidakSah)}</td>
+    <td>${s?.fotoCHasil?`<a href="${s.fotoCHasil}" target="_blank">📷 Lihat</a>`:'-'}</td>
+    <td>${S.user?`<button onclick="openSuara('${t.id}','${s?s.id:''}')">✏️ ${s?'Edit':'Input'}</button>`:''}</td></tr>`;
+  }).join('')}
+  <tr style="background:#f8fafc;font-weight:800"><td>TOTAL</td><td></td><td>${fmt(tot.a)}</td><td>${fmt(tot.b)}</td><td>${fmt(tot.c)}</td><td>${fmt(tot.sah)}</td><td>${fmt(tot.tdk)}</td><td></td><td></td></tr></table>
+  <div id="formSuara"></div>
+  ${canEdit?`<h4>👥 Pendukung KTP (hanya Admin Desa / Super)</h4>
+  <button onclick="showFormPemilih()">+ Tambah Pendukung</button><div id="formPemilih"></div>
+  <table><tr><th>Nama</th><th>NIK</th><th>TPS</th><th>Foto</th><th></th></tr>${d.pemilihList.map(p=>`<tr><td>${esc(p.nama)}</td><td>${esc(p.nik)}</td><td>${esc(p.tps)}</td><td>${p.fotoKtp?`<a href="${p.fotoKtp}" target="_blank"><img class="thumb" src="${p.fotoKtp}"></a>`:'-'}</td><td><button class="red" onclick="hapusPemilih('${p.id}')">Hapus</button></td></tr>`).join('')||'<tr><td colspan="5" class="muted">Belum ada pendukung.</td></tr>'}</table>`:''}
+  `;
+}
+function showFormWilayah(jenis){
+  $('formWilayah').innerHTML=`<div class="card" style="background:#f8fafc"><input id="wNama" placeholder="Nama ${jenis}"><button class="green" onclick="simpanWilayah('${jenis}')">Simpan</button></div>`;
+}
+async function simpanWilayah(jenis){
+  const nama=$('wNama').value.trim(); if(!nama) return alert('Isi nama.');
+  try{
+    if(jenis==='kec') await api('addKecamatan',{id:'kec-'+Date.now(), nama, kode:''});
+    if(jenis==='desa') await api('addDesa',{id:'desa-'+Date.now(), kecamatanId:S.kecId, nama, kode:''});
+    if(jenis==='tps') await api('addTps',{kecamatanId:S.kecId, desaId:S.desaId, nama});
+    await sync(false);
+  }catch(e){ alert(e.message); }
+}
+function openSuara(tpsId, suaraId){
+  const d=curDesa(); const s=d.suaraList.find(x=>x.id===suaraId)||{};
+  const isFinal=s.status==='Final';
+  $('formSuara').innerHTML=`<div class="card" style="background:#fefce8"><h4>${suaraId?'Edit':'Input'} Suara — ${esc(d.tpsList.find(t=>t.id===tpsId)?.nama||'')}</h4>
+  ${isFinal?'<p class="muted">⚠️ Sudah FINAL. Hanya Super Admin yang bisa buka / ubah.</p>':''}
+  <div class="row"><input id="f1" type="number" placeholder="Paslon 01" value="${s.suara1||''}"><input id="f2" type="number" placeholder="Paslon 02" value="${s.suara2||''}"><input id="f3" type="number" placeholder="Paslon 03" value="${s.suara3||''}"></div>
+  <input id="ft" type="number" placeholder="Suara Tidak Sah" value="${s.tidakSah||''}">
+  <label class="muted">Foto C.Hasil (opsional)</label><input id="ff" type="file" accept="image/*">
+  <div class="row"><button class="green" onclick="simpanSuara('${tpsId}','${suaraId}')">💾 Simpan</button>
+  ${suaraId&&S.user.role!=='saksi'?`<button class="gold" onclick="ubahStatus('${suaraId}','${isFinal?'Draft':'Final'}')">${isFinal?'🔓 Buka ke Draft':'🔒 Kunci Final'}</button><button class="red" onclick="hapusSuara('${suaraId}')">🗑️ Hapus</button>`:''}</div></div>`;
+  $('formSuara').scrollIntoView({behavior:'smooth'});
+}
+function fileToBase64(file){ return new Promise(res=>{ if(!file) return res(''); const r=new FileReader(); r.onload=()=>res(r.result); r.readAsDataURL(file); }); }
+async function simpanSuara(tpsId, suaraId){
+  try{
+    const foto=await fileToBase64($('ff').files[0]);
+    const payload={tpsId, suara1:$('f1').value||0, suara2:$('f2').value||0, suara3:$('f3').value||0, tidakSah:$('ft').value||0, fotoCHasil:foto};
+    if(suaraId){ payload.id=suaraId; await api('editSuara', payload); } else { payload.id='suara-'+Date.now(); await api('addSuara', payload); }
+    await sync(false); alert('Suara tersimpan (Draft).');
+  }catch(e){ alert(e.message); }
+}
+async function ubahStatus(id,status){ try{ await api('setSuaraStatus',{id,status}); await sync(false); }catch(e){ alert(e.message); } }
+async function hapusSuara(id){ if(!confirm('Hapus suara ini?')) return; try{ await api('deleteSuara',{id}); await sync(false); }catch(e){ alert(e.message); } }
+function showFormPemilih(){
+  const d=curDesa();
+  $('formPemilih').innerHTML=`<div class="card" style="background:#f0fdf4"><input id="pn" placeholder="Nama Lengkap"><input id="pnik" placeholder="NIK KTP">
+  <select id="ptps">${d.tpsList.map(t=>`<option value="${t.id}">${esc(t.nama)}</option>`).join('')}</select>
+  <input id="pf" type="file" accept="image/*"><button class="green" onclick="simpanPemilih()">Simpan Pendukung</button></div>`;
+}
+async function simpanPemilih(){
+  try{ const foto=await fileToBase64($('pf').files[0]);
+    await api('addPemilih',{id:'pem-'+Date.now(), tpsId:$('ptps').value, nama:$('pn').value.trim(), nik:$('pnik').value.trim(), fotoKtp:foto});
+    await sync(false);
+  }catch(e){ alert(e.message); }
+}
+async function hapusPemilih(id){ if(!confirm('Hapus pendukung ini?')) return; try{ await api('deletePemilih',{id}); await sync(false); }catch(e){ alert(e.message); } }
+
+// --- USERS / CONFIG / LOG ---
+function showUsers(){
+  $('panelUsers').classList.toggle('hidden');
+  $('panelCfg').classList.add('hidden'); $('panelLog').classList.add('hidden'); isiScope(); renderUsers();
+}
+function isiScope(){
+  const role=$('nr').value;
+  let opts='<option value="">— Pilih Scope —</option>';
+  if(role==='super') opts+='<option value="">KABUPATEN (semua)</option>';
+  if(role==='kecamatan') opts+=S.data.map(k=>`<option value="${k.id}">${esc(k.nama)}</option>`).join('');
+  if(role==='desa') opts+=S.data.flatMap(k=>k.desaList.map(d=>`<option value="${d.id}">${esc(k.nama)} — ${esc(d.nama)}</option>`)).join('');
+  if(role==='saksi') opts+=S.data.flatMap(k=>k.desaList.flatMap(d=>d.tpsList.map(t=>`<option value="${t.id}">${esc(k.nama)} — ${esc(d.nama)} — ${esc(t.nama)}</option>`))).join('');
+  $('ns').innerHTML=opts;
+}
+function renderUsers(){
+  $('userList').innerHTML='<table><tr><th>User</th><th>Role</th><th>Scope</th><th></th></tr>'+S.users.map(u=>`<tr><td>${esc(u.displayName)}<br><small class="muted">@${esc(u.username)}</small></td><td>${esc(u.role)}</td><td><small>${esc(u.scopeId||'KABUPATEN')}</small></td><td>${u.username!=='superadmin'?`<button class="red" onclick="hapusUser('${u.id}')">Hapus</button>`:''}</td></tr>`).join('')+'</table>';
+}
+async function addUser(){ try{ await api('addUser',{username:$('nu').value.trim(), pin:$('np').value.trim(), displayName:$('nn').value.trim(), role:$('nr').value, scopeId:$('ns').value}); await sync(false); alert('Akun ditambah.'); }catch(e){ alert(e.message); } }
+async function hapusUser(id){ if(!confirm('Hapus akun ini?')) return; try{ await api('deleteUser',{userId:id}); await sync(false); }catch(e){ alert(e.message); } }
+function showConfig(){
+  $('panelCfg').classList.toggle('hidden'); $('panelUsers').classList.add('hidden'); $('panelLog').classList.add('hidden');
+  $('cKab').value=S.config.kabupatenName||''; $('c1').value=S.config.paslon1||''; $('c2').value=S.config.paslon2||''; $('c3').value=S.config.paslon3||'';
+  $('cKec').checked=S.config.enableAdminKecamatan==='true';
+}
+async function saveCfg(){ try{ await api('updateConfig',{kabupatenName:$('cKab').value, paslon1:$('c1').value, paslon2:$('c2').value, paslon3:$('c3').value, enableAdminKecamatan:$('cKec').checked}); await sync(false); alert('Pengaturan tersimpan.'); }catch(e){ alert(e.message); } }
+function showLog(){
+  $('panelLog').classList.toggle('hidden'); $('panelUsers').classList.add('hidden'); $('panelCfg').classList.add('hidden');
+  $('logList').innerHTML='<table><tr><th>Waktu</th><th>User</th><th>Aksi</th><th>Detail</th></tr>'+S.logs.map(l=>`<tr><td><small>${esc(l.Waktu)}</small></td><td>${esc(l.Username)}</td><td>${esc(l.Aksi)}</td><td><small>${esc(l.Target)} — ${esc(l.Detail)}</small></td></tr>`).join('')+'</table>';
+}
+window.addEventListener('DOMContentLoaded', ()=>{
+  $('url').value=localStorage.getItem(URL_KEY)||'';
+  const saved=sessionStorage.getItem(AUTH_KEY);
+  if(saved){ try{ const p=JSON.parse(saved); S.auth=p.auth; S.user=p.user; sync(false); }catch(e){} }
+  render();
+});
+</script></body></html>
