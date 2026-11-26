@@ -76,7 +76,6 @@ export async function render(container, profil) {
       .select('id, nama_desa, target_ktp, kecamatan_id, kecamatan(nama_kecamatan), tps(id, nomor_tps)')
       .order('nama_desa', { ascending: true });
 
-    // Jika Admin Desa, hanya muat desanya sendiri
     if (!isSuper && profil.desa_id) {
       queryDesa = queryDesa.eq('id', profil.desa_id);
     }
@@ -115,9 +114,9 @@ export async function render(container, profil) {
       const tpsUrut = (d.tps || []).sort((a, b) => a.nomor_tps.localeCompare(b.nomor_tps));
       const badgeTps = tpsUrut.length > 0
         ? tpsUrut.map(t => `
-            <span style="display:inline-flex; align-items:center; gap:4px; background:#e2e8f0; color:#0f172a; padding:3px 8px; border-radius:6px; font-size:12px; font-weight:600; margin:2px;">
+            <span style="display:inline-flex; align-items:center; gap:6px; background:#e2e8f0; color:#0f172a; padding:5px 10px; border-radius:8px; font-size:12px; font-weight:600; margin:3px;">
               TPS ${t.nomor_tps}
-              <button type="button" data-hapus-tps="${t.id}" data-nomor="${t.nomor_tps}" style="border:none; background:none; color:#dc2626; font-weight:800; cursor:pointer; padding:0 2px;">×</button>
+              <button type="button" data-hapus-tps="${t.id}" data-nomor="${t.nomor_tps}" title="Hapus TPS" style="border:none; background:#fee2e2; color:#dc2626; font-weight:800; border-radius:4px; cursor:pointer; padding:2px 7px; font-size:12px;">×</button>
             </span>
           `).join('')
         : '<span style="font-size:12px; color:#64748b;">Belum ada TPS</span>';
@@ -131,11 +130,18 @@ export async function render(container, profil) {
           <button type="button" class="btn-mini btn-assign-kec" data-desa="${d.id}">Simpan</button>
         </div>` : '';
 
+      const tombolHapusDesa = isSuper
+        ? `<button type="button" class="btn-mini" data-hapus-desa="${d.id}" data-nama="${d.nama_desa}" style="color:#dc2626; border-color:#fecaca; padding:4px 8px;">Hapus</button>`
+        : '';
+
       return `
         <div class="list-item" style="flex-direction:column; align-items:flex-start;">
-          <div style="width:100%; display:flex; justify-content:space-between; align-items:center;">
+          <div style="width:100%; display:flex; justify-content:space-between; align-items:center; gap:8px;">
             <strong>${d.nama_desa}</strong>
-            <span class="badge">Target: ${Number(d.target_ktp || 0).toLocaleString('id-ID')} KTP</span>
+            <div style="display:flex; align-items:center; gap:6px;">
+              <span class="badge">Target: ${Number(d.target_ktp || 0).toLocaleString('id-ID')} KTP</span>
+              ${tombolHapusDesa}
+            </div>
           </div>
           <div style="margin-top:6px;">${badgeTps}</div>
           ${tombolAturKec}
@@ -158,8 +164,11 @@ export async function render(container, profil) {
         const desaDiKec = desaList.filter(d => d.kecamatan_id === k.id);
         html += `
           <div style="margin-bottom:16px;">
-            <div style="font-size:13px; font-weight:800; color:#1e3a8a; margin-bottom:6px; text-transform:uppercase;">
-              📍 ${k.nama_kecamatan} (${desaDiKec.length} Desa)
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+              <div style="font-size:13px; font-weight:800; color:#1e3a8a; text-transform:uppercase;">
+                📍 ${k.nama_kecamatan} (${desaDiKec.length} Desa)
+              </div>
+              <button type="button" class="btn-mini" data-hapus-kec="${k.id}" data-nama="${k.nama_kecamatan}" style="color:#dc2626; border-color:#fecaca; padding:3px 8px; font-size:11px;">Hapus Kec</button>
             </div>
             ${desaDiKec.length > 0
               ? desaDiKec.map(renderKartuDesa).join('')
@@ -182,13 +191,47 @@ export async function render(container, profil) {
       listEl.innerHTML = html;
     }
 
-    // Hapus TPS jika salah input
+    // Event Hapus Kecamatan
+    listEl.querySelectorAll('[data-hapus-kec]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        if (!confirm(`Hapus ${btn.dataset.nama}?`)) return;
+        const { error: delErr, count } = await supabase
+          .from('kecamatan')
+          .delete({ count: 'exact' })
+          .eq('id', btn.dataset.hapusKec);
+        if (delErr) return showMsg(`Gagal menghapus kecamatan: ${delErr.message}`, true);
+        if (count === 0) return showMsg('Izin ditolak oleh server.', true);
+        showMsg(`${btn.dataset.nama} berhasil dihapus.`);
+        await muatData();
+      });
+    });
+
+    // Event Hapus Desa
+    listEl.querySelectorAll('[data-hapus-desa]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        if (!confirm(`Hapus ${btn.dataset.nama}? Semua TPS dan data uji coba di desa ini juga akan terhapus.`)) return;
+        const { error: delErr, count } = await supabase
+          .from('desa')
+          .delete({ count: 'exact' })
+          .eq('id', btn.dataset.hapusDesa);
+        if (delErr) return showMsg(`Gagal menghapus desa: ${delErr.message}`, true);
+        if (count === 0) return showMsg('Izin ditolak oleh server.', true);
+        showMsg(`${btn.dataset.nama} berhasil dihapus.`);
+        await muatData();
+      });
+    });
+
+    // Event Hapus TPS
     listEl.querySelectorAll('[data-hapus-tps]').forEach(btn => {
       btn.addEventListener('click', async () => {
         if (!confirm(`Hapus TPS ${btn.dataset.nomor}?`)) return;
-        const { error: delErr } = await supabase.from('tps').delete().eq('id', btn.dataset.hapusTps);
+        const { error: delErr, count } = await supabase
+          .from('tps')
+          .delete({ count: 'exact' })
+          .eq('id', btn.dataset.hapusTps);
         if (delErr) return showMsg(`Gagal menghapus TPS: ${delErr.message}`, true);
-        showMsg(`TPS ${btn.dataset.nomor} dihapus.`);
+        if (count === 0) return showMsg('Izin ditolak oleh server.', true);
+        showMsg(`TPS ${btn.dataset.nomor} berhasil dihapus.`);
         await muatData();
       });
     });
