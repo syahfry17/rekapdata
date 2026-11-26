@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Login Tim — Rekapitulasi Pemilu</title>
+  <style>
+    :root {
+      --bg: #f1f5f9;
+      --card: #ffffff;
+      --text: #0f172a;
+      --muted: #64748b;
+      --border: #cbd5e1;
+      --primary: #1e3a8a;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+
+    .login-card {
+      width: 100%;
+      max-width: 400px;
+      background: var(--card);
+      border: 1px solid #e2e8f0;
+      border-radius: 16px;
+      padding: 24px 20px;
+      box-shadow: 0 4px 16px rgba(15, 23, 42, 0.06);
+    }
+
+    .brand-badge {
+      display: inline-block;
+      background: #dbeafe;
+      color: var(--primary);
+      font-size: 12px;
+      font-weight: 700;
+      padding: 4px 10px;
+      border-radius: 6px;
+      margin-bottom: 10px;
+    }
+
+    h1 { font-size: 20px; font-weight: 800; margin-bottom: 4px; }
+    .subtitle { font-size: 13px; color: var(--muted); margin-bottom: 20px; }
+    .form-group { margin-bottom: 14px; }
+    label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; }
+
+    input {
+      width: 100%;
+      padding: 12px;
+      font-size: 15px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      outline: none;
+      background: #fff;
+    }
+
+    input:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(30, 58, 138, 0.12);
+    }
+
+    .pass-wrap { position: relative; }
+
+    .toggle-pass {
+      position: absolute;
+      right: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: none;
+      border: none;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .btn-submit {
+      width: 100%;
+      padding: 13px;
+      margin-top: 6px;
+      background: var(--primary);
+      color: #fff;
+      font-size: 15px;
+      font-weight: 700;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+    }
+
+    .btn-submit:disabled { opacity: 0.6; cursor: not-allowed; }
+
+    .alert {
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      color: #991b1b;
+      font-size: 13px;
+      padding: 10px 12px;
+      border-radius: 8px;
+      margin-bottom: 14px;
+      display: none;
+    }
+
+    .back-link {
+      display: block;
+      text-align: center;
+      margin-top: 18px;
+      font-size: 13px;
+      color: var(--muted);
+      text-decoration: none;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="login-card">
+    <span class="brand-badge">AKSES TIM LAPANGAN</span>
+    <h1>Masuk ke Sistem</h1>
+    <p class="subtitle">Gunakan akun Admin, Pengepul KTP, atau Saksi TPS</p>
+
+    <div class="alert" id="alertBox"></div>
+
+    <form id="loginForm">
+      <div class="form-group">
+        <label for="email">Email / ID Akun</label>
+        <input type="email" id="email" placeholder="contoh: admin@pemilu.id" required autocomplete="username" />
+      </div>
+
+      <div class="form-group">
+        <label for="password">Kata Sandi</label>
+        <div class="pass-wrap">
+          <input type="password" id="password" placeholder="Masukkan kata sandi" required autocomplete="current-password" />
+          <button type="button" class="toggle-pass" id="togglePass">Lihat</button>
+        </div>
+      </div>
+
+      <button type="submit" class="btn-submit" id="btnSubmit">Masuk</button>
+    </form>
+
+    <a href="index.html" class="back-link">← Kembali ke Layar Pantau Live</a>
+  </div>
+
+  <script type="module">
+    import { supabase } from './js/config.js';
+
+    const form = document.getElementById('loginForm');
+    const alertBox = document.getElementById('alertBox');
+    const btnSubmit = document.getElementById('btnSubmit');
+    const passInput = document.getElementById('password');
+    const togglePass = document.getElementById('togglePass');
+
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session) {
+      window.location.replace('dashboard.html');
+    }
+
+    togglePass.addEventListener('click', () => {
+      const isHidden = passInput.type === 'password';
+      passInput.type = isHidden ? 'text' : 'password';
+      togglePass.textContent = isHidden ? 'Sembunyi' : 'Lihat';
+    });
+
+    function showError(msg) {
+      alertBox.textContent = msg;
+      alertBox.style.display = 'block';
+    }
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      alertBox.style.display = 'none';
+      btnSubmit.disabled = true;
+      btnSubmit.textContent = 'Memeriksa akun...';
+
+      const email = document.getElementById('email').value.trim();
+      const password = passInput.value;
+
+      try {
+        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) throw new Error('Email atau kata sandi salah.');
+
+        const { data: profil, error: errProfil } = await supabase
+          .from('users_tim')
+          .select('aktif')
+          .eq('id', data.user.id)
+          .single();
+
+        if (errProfil || !profil) {
+          await supabase.auth.signOut();
+          throw new Error('Akun belum terdaftar di tabel tim. Hubungi Super Admin.');
+        }
+
+        if (!profil.aktif) {
+          await supabase.auth.signOut();
+          throw new Error('Akun ini telah dinonaktifkan.');
+        }
+
+        window.location.replace('dashboard.html');
+      } catch (err) {
+        showError(err.message);
+        btnSubmit.disabled = false;
+        btnSubmit.textContent = 'Masuk';
+      }
+    });
+  </script>
+</body>
+</html>
