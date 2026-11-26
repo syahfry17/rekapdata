@@ -4,6 +4,7 @@ export async function render(container, profil) {
   const isSuper = profil.role === 'super_admin';
   const isAdminDesa = profil.role === 'admin_desa';
   const isPengepul = profil.role === 'pengepul';
+  const canSeeUploader = isSuper || isAdminDesa;
 
   container.innerHTML = `
     <style>
@@ -52,6 +53,17 @@ export async function render(container, profil) {
         font-size: 18px;
         font-weight: 700;
         cursor: pointer;
+      }
+      .uploader-tag {
+        display: inline-block;
+        margin-top: 5px;
+        padding: 2px 8px;
+        background: #eff6ff;
+        border: 1px solid #dbeafe;
+        color: #1e3a8a;
+        border-radius: 6px;
+        font-size: 11px;
+        font-weight: 600;
       }
     </style>
 
@@ -108,9 +120,10 @@ export async function render(container, profil) {
         </select>
       </div>
 
-      ${isSuper ? `
-        <div class="form-group" style="margin-bottom:10px;">
-          <select id="filterDesaKtp"><option value="">Semua Desa</option></select>
+      ${canSeeUploader ? `
+        <div class="form-grid" style="margin-bottom:10px;">
+          ${isSuper ? `<select id="filterDesaKtp"><option value="">Semua Desa</option></select>` : ''}
+          <select id="filterPenginputKtp"><option value="">Semua Penginput</option></select>
         </div>
       ` : ''}
 
@@ -174,6 +187,7 @@ export async function render(container, profil) {
   const desaEl = document.getElementById('ktpDesa');
   const tpsEl = document.getElementById('ktpTps');
   const filterDesaEl = document.getElementById('filterDesaKtp');
+  const filterPenginputEl = document.getElementById('filterPenginputKtp');
   const filterTpsEl = document.getElementById('filterTpsKtp');
 
   const modalEdit = document.getElementById('modalEditKtp');
@@ -219,11 +233,29 @@ export async function render(container, profil) {
       }).join('');
   }
 
+  // Muat daftar akun tim untuk dropdown filter penginput (khusus Super Admin & Admin Desa)
+  if (filterPenginputEl) {
+    let qUsers = supabase
+      .from('users_tim')
+      .select('id, nama_lengkap, role, email')
+      .order('nama_lengkap', { ascending: true });
+
+    if (isAdminDesa && profil.desa_id) {
+      qUsers = qUsers.eq('desa_id', profil.desa_id);
+    }
+
+    const { data: dUsers } = await qUsers;
+    filterPenginputEl.innerHTML = '<option value="">Semua Penginput</option>' +
+      (dUsers || []).map(u => {
+        const infoEmail = u.email ? ` (${u.email})` : '';
+        return `<option value="${u.id}">${u.nama_lengkap}${infoEmail}</option>`;
+      }).join('');
+  }
+
   isiDropdownTps(desaEl, tpsEl);
   desaEl.addEventListener('change', () => isiDropdownTps(desaEl, tpsEl));
   editDesaEl.addEventListener('change', () => isiDropdownTps(editDesaEl, editTpsEl));
 
-  // Tutup modal edit
   document.getElementById('closeModalEditKtp').addEventListener('click', () => modalEdit.classList.remove('open'));
   modalEdit.addEventListener('click', (e) => {
     if (e.target === modalEdit) modalEdit.classList.remove('open');
@@ -242,12 +274,13 @@ export async function render(container, profil) {
   async function muatKtp() {
     const keyword = document.getElementById('cariKtp').value.trim();
     const filterDesa = filterDesaEl ? filterDesaEl.value : '';
+    const filterPenginput = filterPenginputEl ? filterPenginputEl.value : '';
     const statusTps = filterTpsEl.value;
     const listEl = document.getElementById('listKtp');
 
     let query = supabase
       .from('data_ktp')
-      .select('id, nik, nama, alamat, desa_id, tps_id, created_at, desa(nama_desa), tps(nomor_tps)', { count: 'exact' })
+      .select('id, nik, nama, alamat, desa_id, tps_id, pengepul_id, created_at, desa(nama_desa), tps(nomor_tps), users_tim(nama_lengkap, role, email)', { count: 'exact' })
       .order('created_at', { ascending: false })
       .limit(50);
 
@@ -255,6 +288,10 @@ export async function render(container, profil) {
       query = query.eq('desa_id', profil.desa_id);
     } else if (filterDesa) {
       query = query.eq('desa_id', parseInt(filterDesa, 10));
+    }
+
+    if (filterPenginput) {
+      query = query.eq('pengepul_id', filterPenginput);
     }
 
     if (statusTps === 'kosong') {
@@ -288,6 +325,16 @@ export async function render(container, profil) {
         ? `<span class="badge" style="background:#d1fae5; color:#065f46;">TPS ${item.tps.nomor_tps}</span>`
         : `<span class="badge" style="background:#fef3c7; color:#92400e;">TPS Belum Diisi</span>`;
 
+      const namaPenginput = item.users_tim?.nama_lengkap || 'Tidak diketahui';
+      const emailPenginput = item.users_tim?.email ? ` (${item.users_tim.email})` : '';
+      const waktuInput = new Date(item.created_at).toLocaleString('id-ID', {
+        day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit'
+      });
+
+      const infoPenginputHtml = canSeeUploader
+        ? `<div class="uploader-tag">👤 Diinput oleh: ${namaPenginput}${emailPenginput} • ${waktuInput}</div>`
+        : '';
+
       return `
         <div class="list-item" style="align-items:flex-start;">
           <div style="flex:1;">
@@ -299,6 +346,7 @@ export async function render(container, profil) {
             <div style="font-size:12px; color:#64748b; margin-top:2px;">
               ${item.desa?.nama_desa || '-'}${item.alamat ? ' • ' + item.alamat : ''}
             </div>
+            ${infoPenginputHtml}
           </div>
           ${bisaKelola ? `
             <div style="display:flex; flex-direction:column; gap:5px;">
@@ -328,7 +376,6 @@ export async function render(container, profil) {
     });
   }
 
-  // Simpan perubahan dari modal Edit KTP
   document.getElementById('formEditKtp').addEventListener('submit', async (e) => {
     e.preventDefault();
     const btn = document.getElementById('btnUpdateKtp');
@@ -359,13 +406,11 @@ export async function render(container, profil) {
     await muatKtp();
   });
 
-  // Filter hanya angka pada kolom NIK
   const nikInput = document.getElementById('ktpNik');
   nikInput.addEventListener('input', () => {
     nikInput.value = nikInput.value.replace(/\D/g, '').slice(0, 16);
   });
 
-  // Simpan KTP baru
   document.getElementById('formKtp').addEventListener('submit', async (e) => {
     e.preventDefault();
     const btn = document.getElementById('btnSimpanKtp');
@@ -413,7 +458,6 @@ export async function render(container, profil) {
     await muatKtp();
   });
 
-  // Pencarian & filter
   let timerCari;
   document.getElementById('cariKtp').addEventListener('input', () => {
     clearTimeout(timerCari);
@@ -421,15 +465,16 @@ export async function render(container, profil) {
   });
   filterTpsEl.addEventListener('change', muatKtp);
   if (filterDesaEl) filterDesaEl.addEventListener('change', muatKtp);
+  if (filterPenginputEl) filterPenginputEl.addEventListener('change', muatKtp);
 
-  // Export CSV
+  // Export CSV lengkap dengan kolom Penginput
   document.getElementById('btnExportKtp').addEventListener('click', async () => {
     const btn = document.getElementById('btnExportKtp');
     btn.textContent = 'Menyiapkan...';
 
     let query = supabase
       .from('data_ktp')
-      .select('nik, nama, alamat, created_at, desa(nama_desa), tps(nomor_tps)')
+      .select('nik, nama, alamat, created_at, desa(nama_desa), tps(nomor_tps), users_tim(nama_lengkap, email)')
       .order('created_at', { ascending: false })
       .limit(15000);
 
@@ -437,6 +482,10 @@ export async function render(container, profil) {
       query = query.eq('desa_id', profil.desa_id);
     } else if (filterDesaEl && filterDesaEl.value) {
       query = query.eq('desa_id', parseInt(filterDesaEl.value, 10));
+    }
+
+    if (filterPenginputEl && filterPenginputEl.value) {
+      query = query.eq('pengepul_id', filterPenginputEl.value);
     }
 
     const { data, error } = await query;
@@ -447,13 +496,15 @@ export async function render(container, profil) {
     }
 
     const baris = [
-      ['NIK', 'Nama Lengkap', 'Desa', 'TPS', 'Alamat', 'Waktu Input'].join(','),
+      ['NIK', 'Nama Lengkap', 'Desa', 'TPS', 'Alamat', 'Diinput Oleh', 'Email Penginput', 'Waktu Input'].join(','),
       ...data.map(r => [
         `"${r.nik}"`,
         `"${(r.nama || '').replace(/"/g, '""')}"`,
         `"${r.desa?.nama_desa || ''}"`,
         `"${r.tps?.nomor_tps || ''}"`,
         `"${(r.alamat || '').replace(/"/g, '""')}"`,
+        `"${(r.users_tim?.nama_lengkap || '').replace(/"/g, '""')}"`,
+        `"${r.users_tim?.email || ''}"`,
         `"${new Date(r.created_at).toLocaleString('id-ID')}"`
       ].join(','))
     ];
