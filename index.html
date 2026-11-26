@@ -14,15 +14,9 @@
       --primary: #1e3a8a;
       --primary-soft: #dbeafe;
       --green: #059669;
-      --green-soft: #d1fae5;
-      --amber: #d97706;
     }
 
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -32,7 +26,6 @@
       padding-bottom: 32px;
     }
 
-    /* Header */
     .topbar {
       background: var(--primary);
       color: #fff;
@@ -52,11 +45,7 @@
       gap: 12px;
     }
 
-    .brand h1 {
-      font-size: 16px;
-      font-weight: 700;
-      letter-spacing: 0.3px;
-    }
+    .brand h1 { font-size: 16px; font-weight: 700; letter-spacing: 0.3px; }
 
     .status-live {
       display: inline-flex;
@@ -74,9 +63,7 @@
       display: inline-block;
     }
 
-    .dot.offline {
-      background: #f87171;
-    }
+    .dot.offline { background: #f87171; }
 
     .btn-login {
       background: rgba(255, 255, 255, 0.15);
@@ -90,14 +77,12 @@
       white-space: nowrap;
     }
 
-    /* Container */
     .container {
       max-width: 720px;
       margin: 16px auto 0;
       padding: 0 14px;
     }
 
-    /* Alert Error */
     .alert {
       background: #fef2f2;
       border: 1px solid #fecaca;
@@ -109,7 +94,6 @@
       display: none;
     }
 
-    /* Ringkasan Utama */
     .grid-2 {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -118,9 +102,7 @@
     }
 
     @media (max-width: 480px) {
-      .grid-2 {
-        grid-template-columns: 1fr;
-      }
+      .grid-2 { grid-template-columns: 1fr; }
     }
 
     .card {
@@ -171,35 +153,32 @@
       transition: width 0.4s ease;
     }
 
-    .progress-fill.blue {
-      background: var(--primary);
-    }
+    .progress-fill.blue { background: var(--primary); }
 
-    /* Section Header */
     .section-head {
       display: flex;
       align-items: center;
       justify-content: space-between;
+      gap: 8px;
       margin: 20px 0 10px;
+      flex-wrap: wrap;
     }
 
-    .section-head h2 {
-      font-size: 15px;
-      font-weight: 700;
-    }
+    .section-head h2 { font-size: 15px; font-weight: 700; }
 
-    .btn-refresh {
+    .controls { display: flex; gap: 6px; align-items: center; }
+
+    select.filter-select, .btn-refresh {
       background: var(--card);
       border: 1px solid var(--border);
       color: var(--text);
       font-size: 12px;
       font-weight: 600;
-      padding: 6px 12px;
+      padding: 6px 10px;
       border-radius: 8px;
       cursor: pointer;
     }
 
-    /* Daftar Desa */
     .desa-list {
       display: flex;
       flex-direction: column;
@@ -216,14 +195,13 @@
     .desa-top {
       display: flex;
       justify-content: space-between;
-      align-items: center;
+      align-items: flex-start;
+      gap: 8px;
       margin-bottom: 8px;
     }
 
-    .desa-name {
-      font-weight: 700;
-      font-size: 15px;
-    }
+    .desa-name { font-weight: 700; font-size: 15px; }
+    .kec-sub { font-size: 11px; font-weight: 600; color: var(--muted); }
 
     .badge {
       font-size: 12px;
@@ -233,6 +211,7 @@
       background: var(--primary-soft);
       color: var(--primary);
       font-variant-numeric: tabular-nums;
+      white-space: nowrap;
     }
 
     .desa-stats {
@@ -247,9 +226,7 @@
       font-variant-numeric: tabular-nums;
     }
 
-    .desa-stats strong {
-      color: var(--text);
-    }
+    .desa-stats strong { color: var(--text); }
 
     .empty-box {
       background: var(--card);
@@ -287,7 +264,6 @@
   <main class="container">
     <div class="alert" id="errorBox"></div>
 
-    <!-- Kartu Ringkasan -->
     <section class="grid-2">
       <div class="card">
         <div class="card-label">KTP Terkumpul</div>
@@ -308,10 +284,21 @@
       </div>
     </section>
 
-    <!-- Rincian Per Desa -->
+    <div id="kecamatanSection" style="display:none;">
+      <div class="section-head">
+        <h2>Rekapitulasi Per Kecamatan</h2>
+      </div>
+      <div class="desa-list" id="kecamatanList"></div>
+    </div>
+
     <div class="section-head">
       <h2>Rekapitulasi Per Desa</h2>
-      <button class="btn-refresh" id="btnRefresh">↻ Perbarui</button>
+      <div class="controls">
+        <select class="filter-select" id="filterKecamatan" style="display:none;">
+          <option value="">Semua Kecamatan</option>
+        </select>
+        <button class="btn-refresh" id="btnRefresh">↻ Perbarui</button>
+      </div>
     </div>
 
     <div class="desa-list" id="desaList">
@@ -330,6 +317,9 @@
     const elTotalSuara = document.getElementById('totalSuara');
     const elSubSuara = document.getElementById('subSuara');
     const elBarTps = document.getElementById('barTps');
+    const elKecSection = document.getElementById('kecamatanSection');
+    const elKecList = document.getElementById('kecamatanList');
+    const elFilterKec = document.getElementById('filterKecamatan');
     const elDesaList = document.getElementById('desaList');
     const elError = document.getElementById('errorBox');
     const elDot = document.getElementById('statusDot');
@@ -337,17 +327,55 @@
     const elLastUpdate = document.getElementById('lastUpdate');
 
     const formatAngka = (num) => Number(num || 0).toLocaleString('id-ID');
+    let cacheData = null;
+
+    function renderDaftarDesa() {
+      if (!cacheData) return;
+      const pilihKec = elFilterKec.value;
+      const semuaDesa = cacheData.per_desa || [];
+      const daftarDesa = pilihKec
+        ? semuaDesa.filter(d => String(d.kecamatan_id) === pilihKec)
+        : semuaDesa;
+
+      if (daftarDesa.length === 0) {
+        elDesaList.innerHTML = `
+          <div class="empty-box">
+            Belum ada data desa yang ditampilkan.<br>
+            Silakan tambahkan wilayah melalui menu Admin.
+          </div>`;
+        return;
+      }
+
+      elDesaList.innerHTML = daftarDesa.map((d) => {
+        const pDesa = d.target_ktp > 0 ? Math.round((d.jumlah_ktp / d.target_ktp) * 100) : 0;
+        return `
+          <div class="desa-item">
+            <div class="desa-top">
+              <div>
+                <div class="desa-name">${d.nama_desa}</div>
+                <div class="kec-sub">${d.nama_kecamatan || ''}</div>
+              </div>
+              <span class="badge">${pDesa}% Target KTP</span>
+            </div>
+            <div class="desa-stats">
+              <div>KTP: <strong>${formatAngka(d.jumlah_ktp)}</strong> / ${formatAngka(d.target_ktp)}</div>
+              <div>Suara: <strong>${formatAngka(d.suara_calon)}</strong> (${d.tps_masuk}/${d.total_tps} TPS)</div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
 
     async function muatRingkasan() {
       try {
         const { data, error } = await supabase.rpc('get_ringkasan_calon');
         if (error) throw error;
 
+        cacheData = data;
         elError.style.display = 'none';
         elDot.classList.remove('offline');
         elStatus.textContent = 'Live • Terhubung';
 
-        // 1. Update KTP
         const totalKtp = data.total_ktp || 0;
         const targetKtp = data.target_ktp || 0;
         const persenKtp = targetKtp > 0 ? Math.min(100, Math.round((totalKtp / targetKtp) * 100)) : 0;
@@ -356,7 +384,6 @@
         elSubKtp.textContent = `Target: ${formatAngka(targetKtp)} KTP (${persenKtp}%)`;
         elBarKtp.style.width = `${persenKtp}%`;
 
-        // 2. Update Suara & TPS
         const suaraCalon = data.total_suara_calon || 0;
         const tpsMasuk = data.tps_masuk || 0;
         const totalTps = data.total_tps || 0;
@@ -366,31 +393,37 @@
         elSubSuara.textContent = `TPS Masuk: ${formatAngka(tpsMasuk)} / ${formatAngka(totalTps)} TPS (${persenTps}%)`;
         elBarTps.style.width = `${persenTps}%`;
 
-        // 3. Render Per Desa
-        const daftarDesa = data.per_desa || [];
-        if (daftarDesa.length === 0) {
-          elDesaList.innerHTML = `
-            <div class="empty-box">
-              Belum ada data desa yang dimasukkan.<br>
-              Silakan tambahkan daftar desa melalui menu Admin nanti.
-            </div>`;
-        } else {
-          elDesaList.innerHTML = daftarDesa.map((d) => {
-            const pDesa = d.target_ktp > 0 ? Math.round((d.jumlah_ktp / d.target_ktp) * 100) : 0;
+        const daftarKec = data.per_kecamatan || [];
+        if (daftarKec.length > 0) {
+          elKecSection.style.display = 'block';
+          elFilterKec.style.display = 'inline-block';
+
+          const nilaiFilterSebelumnya = elFilterKec.value;
+          elFilterKec.innerHTML = '<option value="">Semua Kecamatan</option>' +
+            daftarKec.map(k => `<option value="${k.kecamatan_id}">${k.nama_kecamatan}</option>`).join('');
+          elFilterKec.value = nilaiFilterSebelumnya;
+
+          elKecList.innerHTML = daftarKec.map((k) => {
+            const pKec = k.target_ktp > 0 ? Math.round((k.jumlah_ktp / k.target_ktp) * 100) : 0;
             return `
               <div class="desa-item">
                 <div class="desa-top">
-                  <span class="desa-name">${d.nama_desa}</span>
-                  <span class="badge">${pDesa}% Target KTP</span>
+                  <span class="desa-name">${k.nama_kecamatan}</span>
+                  <span class="badge">${pKec}% Target KTP</span>
                 </div>
                 <div class="desa-stats">
-                  <div>KTP: <strong>${formatAngka(d.jumlah_ktp)}</strong> / ${formatAngka(d.target_ktp)}</div>
-                  <div>Suara: <strong>${formatAngka(d.suara_calon)}</strong> (${d.tps_masuk}/${d.total_tps} TPS)</div>
+                  <div>KTP: <strong>${formatAngka(k.jumlah_ktp)}</strong> / ${formatAngka(k.target_ktp)}</div>
+                  <div>Suara: <strong>${formatAngka(k.suara_calon)}</strong> (${k.tps_masuk}/${k.total_tps} TPS)</div>
                 </div>
               </div>
             `;
           }).join('');
+        } else {
+          elKecSection.style.display = 'none';
+          elFilterKec.style.display = 'none';
         }
+
+        renderDaftarDesa();
 
         const jam = new Date().toLocaleTimeString('id-ID');
         elLastUpdate.textContent = `Terakhir diperbarui: ${jam} WIB (otomatis tiap 10 detik)`;
@@ -398,13 +431,13 @@
         elDot.classList.add('offline');
         elStatus.textContent = 'Terputus';
         elError.style.display = 'block';
-        elError.textContent = `Gagal terhubung ke database: ${err.message}. Pastikan js/config.js sudah diisi dengan benar.`;
+        elError.textContent = `Gagal terhubung ke database: ${err.message}`;
       }
     }
 
+    elFilterKec.addEventListener('change', renderDaftarDesa);
     document.getElementById('btnRefresh').addEventListener('click', muatRingkasan);
 
-    // Jalankan pertama kali & ulangi otomatis tiap 10 detik
     muatRingkasan();
     setInterval(muatRingkasan, 10000);
   </script>
