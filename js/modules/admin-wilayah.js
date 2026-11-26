@@ -8,16 +8,31 @@ export async function render(container, profil) {
 
     ${isSuper ? `
     <div class="card">
-      <h2>Tambah Desa Baru</h2>
+      <h2>1. Tambah Kecamatan</h2>
+      <form id="formKecamatan">
+        <div class="form-group">
+          <label>Nama Kecamatan</label>
+          <input type="text" id="namaKecamatan" placeholder="Contoh: Kecamatan Pangkatan" required />
+        </div>
+        <button type="submit" class="btn-primary">Simpan Kecamatan</button>
+      </form>
+    </div>
+
+    <div class="card">
+      <h2>2. Tambah Desa di Kecamatan</h2>
       <form id="formDesa">
+        <div class="form-group">
+          <label>Pilih Kecamatan</label>
+          <select id="pilihKecamatanDesa" required></select>
+        </div>
         <div class="form-grid">
           <div class="form-group">
-            <label>Nama Desa / Kelurahan</label>
-            <input type="text" id="namaDesa" placeholder="Contoh: Kampung Padang" required />
+            <label>Nama Desa</label>
+            <input type="text" id="namaDesa" placeholder="Contoh: Desa Kampung Padang" required />
           </div>
           <div class="form-group">
             <label>Target KTP Desa</label>
-            <input type="number" id="targetKtp" placeholder="Contoh: 2000" min="0" required />
+            <input type="number" id="targetKtp" placeholder="Contoh: 1500" min="0" required />
           </div>
         </div>
         <button type="submit" class="btn-primary">Simpan Desa</button>
@@ -26,16 +41,16 @@ export async function render(container, profil) {
     ` : ''}
 
     <div class="card">
-      <h2>Tambah TPS</h2>
+      <h2>${isSuper ? '3. Tambah TPS' : 'Tambah TPS di Desa Anda'}</h2>
       <form id="formTps">
         <div class="form-grid">
           <div class="form-group">
-            <label>Pilih Desa</label>
+            <label>${isSuper ? 'Pilih Desa' : 'Wilayah Desa Anda'}</label>
             <select id="pilihDesaTps" required ${!isSuper ? 'disabled' : ''}></select>
           </div>
           <div class="form-group">
             <label>Nomor TPS</label>
-            <input type="text" id="nomorTps" placeholder="Contoh: 001" required />
+            <input type="text" id="nomorTps" placeholder="Contoh: 01" required />
           </div>
         </div>
         <button type="submit" class="btn-primary">Simpan TPS</button>
@@ -43,7 +58,7 @@ export async function render(container, profil) {
     </div>
 
     <div class="card">
-      <h2>Daftar Desa & TPS Terdaftar</h2>
+      <h2>${isSuper ? 'Daftar Kecamatan, Desa & TPS' : 'Daftar TPS Desa Anda'}</h2>
       <div id="listWilayah">Memuat data...</div>
     </div>
   `;
@@ -52,59 +67,174 @@ export async function render(container, profil) {
   const showMsg = (text, isErr = false) => {
     msgEl.textContent = text;
     msgEl.className = `msg ${isErr ? 'err' : 'ok'}`;
+    msgEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   };
 
   async function muatData() {
-    const { data: daftarDesa, error } = await supabase
+    let queryDesa = supabase
       .from('desa')
-      .select('id, nama_desa, target_ktp, tps(id, nomor_tps)')
+      .select('id, nama_desa, target_ktp, kecamatan_id, kecamatan(nama_kecamatan), tps(id, nomor_tps)')
       .order('nama_desa', { ascending: true });
+
+    // Jika Admin Desa, hanya muat desanya sendiri
+    if (!isSuper && profil.desa_id) {
+      queryDesa = queryDesa.eq('id', profil.desa_id);
+    }
+
+    const [{ data: daftarKec }, { data: daftarDesa, error }] = await Promise.all([
+      supabase.from('kecamatan').select('id, nama_kecamatan').order('nama_kecamatan', { ascending: true }),
+      queryDesa
+    ]);
 
     if (error) {
       showMsg(`Gagal memuat data wilayah: ${error.message}`, true);
       return;
     }
 
-    const selectDesa = document.getElementById('pilihDesaTps');
-    selectDesa.innerHTML = (daftarDesa || []).length > 0
-      ? daftarDesa.map(d => `<option value="${d.id}" ${d.id === profil.desa_id ? 'selected' : ''}>${d.nama_desa}</option>`).join('')
-      : '<option value="">-- Tambahkan desa dulu --</option>';
+    const kecList = daftarKec || [];
+    const desaList = daftarDesa || [];
 
-    const listEl = document.getElementById('listWilayah');
-    if (!daftarDesa || daftarDesa.length === 0) {
-      listEl.innerHTML = `<p style="font-size:13px; color:#64748b;">Belum ada desa. Tambahkan desa terlebih dahulu di atas.</p>`;
-      return;
+    if (isSuper) {
+      const selKec = document.getElementById('pilihKecamatanDesa');
+      selKec.innerHTML = kecList.length > 0
+        ? kecList.map(k => `<option value="${k.id}">${k.nama_kecamatan}</option>`).join('')
+        : '<option value="">-- Tambahkan kecamatan dulu di atas --</option>';
     }
 
-    listEl.innerHTML = daftarDesa.map(d => {
+    const selectDesa = document.getElementById('pilihDesaTps');
+    selectDesa.innerHTML = desaList.length > 0
+      ? desaList.map(d => {
+          const namaKec = d.kecamatan?.nama_kecamatan ? `${d.kecamatan.nama_kecamatan} — ` : '';
+          return `<option value="${d.id}" ${d.id === profil.desa_id ? 'selected' : ''}>${namaKec}${d.nama_desa}</option>`;
+        }).join('')
+      : '<option value="">-- Belum ada desa --</option>';
+
+    const listEl = document.getElementById('listWilayah');
+
+    const renderKartuDesa = (d) => {
       const tpsUrut = (d.tps || []).sort((a, b) => a.nomor_tps.localeCompare(b.nomor_tps));
-      const labelTps = tpsUrut.length > 0
-        ? tpsUrut.map(t => `TPS ${t.nomor_tps}`).join(', ')
-        : 'Belum ada TPS';
+      const badgeTps = tpsUrut.length > 0
+        ? tpsUrut.map(t => `
+            <span style="display:inline-flex; align-items:center; gap:4px; background:#e2e8f0; color:#0f172a; padding:3px 8px; border-radius:6px; font-size:12px; font-weight:600; margin:2px;">
+              TPS ${t.nomor_tps}
+              <button type="button" data-hapus-tps="${t.id}" data-nomor="${t.nomor_tps}" style="border:none; background:none; color:#dc2626; font-weight:800; cursor:pointer; padding:0 2px;">×</button>
+            </span>
+          `).join('')
+        : '<span style="font-size:12px; color:#64748b;">Belum ada TPS</span>';
+
+      const tombolAturKec = (isSuper && !d.kecamatan_id && kecList.length > 0) ? `
+        <div style="margin-top:8px; display:flex; gap:6px; width:100%;">
+          <select class="sel-assign-kec" data-desa="${d.id}" style="padding:6px 8px; font-size:12px;">
+            <option value="">-- Masukkan ke Kecamatan --</option>
+            ${kecList.map(k => `<option value="${k.id}">${k.nama_kecamatan}</option>`).join('')}
+          </select>
+          <button type="button" class="btn-mini btn-assign-kec" data-desa="${d.id}">Simpan</button>
+        </div>` : '';
+
       return `
         <div class="list-item" style="flex-direction:column; align-items:flex-start;">
           <div style="width:100%; display:flex; justify-content:space-between; align-items:center;">
             <strong>${d.nama_desa}</strong>
             <span class="badge">Target: ${Number(d.target_ktp || 0).toLocaleString('id-ID')} KTP</span>
           </div>
-          <div style="font-size:12px; color:#475569;">
-            <strong>${tpsUrut.length} TPS:</strong> ${labelTps}
-          </div>
+          <div style="margin-top:6px;">${badgeTps}</div>
+          ${tombolAturKec}
         </div>
       `;
-    }).join('');
+    };
+
+    if (!isSuper) {
+      listEl.innerHTML = desaList.length > 0
+        ? desaList.map(renderKartuDesa).join('')
+        : `<p style="font-size:13px; color:#64748b;">Akun Anda belum terhubung ke desa. Hubungi Super Admin.</p>`;
+    } else {
+      if (desaList.length === 0 && kecList.length === 0) {
+        listEl.innerHTML = `<p style="font-size:13px; color:#64748b;">Belum ada wilayah. Mulai dengan menambahkan Kecamatan di atas.</p>`;
+        return;
+      }
+
+      let html = '';
+      kecList.forEach(k => {
+        const desaDiKec = desaList.filter(d => d.kecamatan_id === k.id);
+        html += `
+          <div style="margin-bottom:16px;">
+            <div style="font-size:13px; font-weight:800; color:#1e3a8a; margin-bottom:6px; text-transform:uppercase;">
+              📍 ${k.nama_kecamatan} (${desaDiKec.length} Desa)
+            </div>
+            ${desaDiKec.length > 0
+              ? desaDiKec.map(renderKartuDesa).join('')
+              : `<p style="font-size:12px; color:#64748b; margin-bottom:8px;">Belum ada desa di kecamatan ini.</p>`}
+          </div>
+        `;
+      });
+
+      const desaTanpaKec = desaList.filter(d => !d.kecamatan_id);
+      if (desaTanpaKec.length > 0) {
+        html += `
+          <div style="margin-bottom:14px;">
+            <div style="font-size:13px; font-weight:800; color:#d97706; margin-bottom:6px; text-transform:uppercase;">
+              ⚠️ Desa Belum Masuk Kecamatan (${desaTanpaKec.length})
+            </div>
+            ${desaTanpaKec.map(renderKartuDesa).join('')}
+          </div>
+        `;
+      }
+      listEl.innerHTML = html;
+    }
+
+    // Hapus TPS jika salah input
+    listEl.querySelectorAll('[data-hapus-tps]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        if (!confirm(`Hapus TPS ${btn.dataset.nomor}?`)) return;
+        const { error: delErr } = await supabase.from('tps').delete().eq('id', btn.dataset.hapusTps);
+        if (delErr) return showMsg(`Gagal menghapus TPS: ${delErr.message}`, true);
+        showMsg(`TPS ${btn.dataset.nomor} dihapus.`);
+        await muatData();
+      });
+    });
+
+    // Hubungkan desa lama ke kecamatan
+    listEl.querySelectorAll('.btn-assign-kec').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const desaId = parseInt(btn.dataset.desa, 10);
+        const sel = listEl.querySelector(`.sel-assign-kec[data-desa="${desaId}"]`);
+        const kecId = parseInt(sel.value, 10);
+        if (!kecId) return showMsg('Pilih kecamatan terlebih dahulu.', true);
+
+        const { error: upErr } = await supabase.from('desa').update({ kecamatan_id: kecId }).eq('id', desaId);
+        if (upErr) return showMsg(`Gagal memperbarui: ${upErr.message}`, true);
+
+        showMsg('Desa berhasil dihubungkan ke Kecamatan.');
+        await muatData();
+      });
+    });
   }
 
   if (isSuper) {
+    document.getElementById('formKecamatan').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const nama_kecamatan = document.getElementById('namaKecamatan').value.trim();
+      const { error } = await supabase.from('kecamatan').insert({ nama_kecamatan });
+      if (error) return showMsg(`Gagal menambah kecamatan: ${error.message}`, true);
+
+      e.target.reset();
+      showMsg(`Kecamatan "${nama_kecamatan}" berhasil ditambahkan.`);
+      await muatData();
+    });
+
     document.getElementById('formDesa').addEventListener('submit', async (e) => {
       e.preventDefault();
+      const kecamatan_id = parseInt(document.getElementById('pilihKecamatanDesa').value, 10);
       const nama_desa = document.getElementById('namaDesa').value.trim();
       const target_ktp = parseInt(document.getElementById('targetKtp').value, 10) || 0;
 
-      const { error } = await supabase.from('desa').insert({ nama_desa, target_ktp });
+      if (!kecamatan_id) return showMsg('Pilih atau tambahkan kecamatan terlebih dahulu.', true);
+
+      const { error } = await supabase.from('desa').insert({ kecamatan_id, nama_desa, target_ktp });
       if (error) return showMsg(`Gagal menambah desa: ${error.message}`, true);
 
-      e.target.reset();
+      document.getElementById('namaDesa').value = '';
+      document.getElementById('targetKtp').value = '';
       showMsg(`Desa "${nama_desa}" berhasil ditambahkan.`);
       await muatData();
     });
