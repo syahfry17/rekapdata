@@ -1,234 +1,570 @@
-<!DOCTYPE html><html lang="id"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>SIPEMILU LITE</title><style>
-*{box-sizing:border-box}body{margin:0;font-family:system-ui;background:#f1f5f9;color:#0f172a}
-header{background:#0f2537;color:#fff;padding:14px 16px;position:sticky;top:0;display:flex;justify-content:space-between;align-items:center}
-header b{font-size:17px}header span{color:#fbbf24;font-size:12px}
-.wrap{max-width:900px;margin:0 auto;padding:12px}.card{background:#fff;border-radius:14px;padding:14px;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,.06)}
-input,select{width:100%;padding:11px;border:1px solid #cbd5e1;border-radius:10px;margin:5px 0;font-size:15px}
-button{padding:11px 14px;border:0;border-radius:10px;background:#0f2537;color:#fff;font-weight:700;cursor:pointer}
-button.gold{background:#f59e0b;color:#111}button.green{background:#15803d}button.red{background:#dc2626}button.ghost{background:#e2e8f0;color:#111}
-.row{display:flex;gap:8px;flex-wrap:wrap}.row>*{flex:1}.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
-.stat{background:#0f2537;color:#fff;border-radius:12px;padding:12px;text-align:center}.stat b{font-size:24px;display:block}
-.stat small{color:#fbbf24}table{width:100%;border-collapse:collapse;font-size:14px}th,td{padding:8px;border-bottom:1px solid #e2e8f0;text-align:left}
-.badge{padding:3px 8px;border-radius:20px;font-size:11px;font-weight:800}.final{background:#dcfce7;color:#166534}.draft{background:#fef3c7;color:#92400e}
-.hidden{display:none}.muted{color:#64748b;font-size:13px}.bar{height:12px;background:#e2e8f0;border-radius:99px;overflow:hidden}.bar i{display:block;height:100%;background:#f59e0b}
-img.thumb{width:64px;height:64px;object-fit:cover;border-radius:8px}
-@media(max-width:600px){.grid3{grid-template-columns:1fr}.row{flex-direction:column}}
-</style></head><body>
-<header><div><b>🗳️ SIPEMILU LITE</b><br><span id="sub">Sistem Terisolasi • Saksi & Rekap Desa</span></div>
-<div class="row" style="flex:none"><button id="btnSync" class="ghost hidden" onclick="sync(false)">↻ Sync</button><button id="btnLogin" onclick="showLogin()">Login Petugas</button></div></header>
-<div class="wrap">
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <meta name="theme-color" content="#0f4c81" />
+  <link rel="manifest" href="./manifest.json" />
+  <title>Hasil Rekapitulasi Pemilu — SIPEMILU</title>
+  <style>
+    :root {
+      --primary: #0f4c81; --primary-dark: #0f2537;
+      --success: #15803d; --warning: #b45309; --danger: #b91c1c;
+      --bg: #f1f5f9; --card: #ffffff; --text: #0f172a; --muted: #64748b; --border: #cbd5e1;
+      --amber: #f59e0b;
+    }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    body {
+      margin: 0; overflow-x: hidden;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg); color: var(--text);
+      min-height: 100vh; display: flex; flex-direction: column;
+      -webkit-font-smoothing: antialiased;
+    }
+    .hide-mobile { display: inline; }
+    @media (max-width: 480px) { .hide-mobile { display: none; } }
 
-<!-- LOGIN -->
-<div id="loginCard" class="card hidden"><h3>Login Petugas</h3>
-<input id="u" placeholder="Username — cth: superadmin"><input id="p" type="password" placeholder="PIN — default superadmin: admin123">
-<input id="url" placeholder="URL Web App Apps Script (https://script.google.com/...)">
-<button class="gold" style="width:100%" onclick="doLogin()">Masuk</button><p class="muted">URL disimpan di HP ini. PIN tidak disimpan.</p></div>
+    /* Header */
+    .header {
+      background: linear-gradient(135deg, #0f2537 0%, #173654 50%, #1e3a8a 100%);
+      color: #fff; padding: 14px 16px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+      border-bottom: 4px solid var(--amber);
+      position: sticky; top: 0; z-index: 100;
+    }
+    .header-inner {
+      max-width: 1100px; margin: 0 auto;
+      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    }
+    .brand { display: flex; align-items: center; gap: 10px; }
+    .brand-logo {
+      width: 42px; height: 42px; border-radius: 12px;
+      background: var(--amber); color: var(--primary-dark);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 22px; font-weight: 900;
+      box-shadow: 0 4px 12px rgba(245,158,11,0.4); flex-shrink: 0;
+    }
+    .brand-text h1 { margin: 0; font-size: 17px; font-weight: 800; letter-spacing: -0.3px; line-height: 1.1; }
+    .brand-text p { margin: 2px 0 0; font-size: 11px; color: #bfdbfe; font-weight: 500; }
+    .header-actions { display: flex; gap: 8px; align-items: center; }
+    .btn-icon {
+      background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.2);
+      color: #fff; padding: 9px 12px; border-radius: 10px;
+      font-size: 12px; font-weight: 600; cursor: pointer;
+      display: inline-flex; align-items: center; gap: 6px;
+      transition: all 0.2s; text-decoration: none;
+    }
+    .btn-icon:hover { background: rgba(255,255,255,0.22); }
+    .btn-icon:active { transform: scale(0.97); }
 
-<!-- BANNER ROLE -->
-<div id="banner" class="card hidden"><b id="roleBadge"></b> <span id="roleUser"></span> • <span id="roleScope"></span>
-<div class="row" style="margin-top:10px"><button id="btnUsers" class="hidden" onclick="showUsers()">👥 Kelola Akun</button><button id="btnCfg" class="hidden" onclick="showConfig()">⚙️ Pengaturan</button><button id="btnLog" class="hidden" onclick="showLog()">📜 Log</button><button class="red" onclick="logout()">Keluar</button></div></div>
+    /* Hero */
+    .hero {
+      background: linear-gradient(135deg, #0f2537 0%, #173654 60%, #1e3a8a 100%);
+      color: #fff; padding: 32px 16px 60px;
+      text-align: center; position: relative; overflow: hidden;
+    }
+    .hero::before {
+      content: ''; position: absolute; top: -50%; right: -20%;
+      width: 500px; height: 500px; border-radius: 50%;
+      background: radial-gradient(circle, rgba(245,158,11,0.15) 0%, transparent 70%);
+    }
+    .hero-inner { max-width: 1100px; margin: 0 auto; position: relative; z-index: 2; }
+    .hero-label {
+      display: inline-block; padding: 5px 14px; border-radius: 999px;
+      background: rgba(245,158,11,0.2); border: 1px solid rgba(245,158,11,0.5);
+      color: var(--amber); font-size: 11px; font-weight: 800;
+      letter-spacing: 1px; text-transform: uppercase; margin-bottom: 12px;
+    }
+    .hero h2 { margin: 0 0 8px; font-size: clamp(24px, 5vw, 38px); font-weight: 900; letter-spacing: -0.5px; line-height: 1.1; }
+    .hero p { margin: 0; color: #bfdbfe; font-size: 13px; }
+    .live-badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 999px;
+      background: rgba(16,185,129,0.15); color: #6ee7b7;
+      border: 1px solid rgba(16,185,129,0.35); margin-top: 14px;
+    }
+    .live-dot { width: 7px; height: 7px; border-radius: 50%; background: #10b981; animation: pulse 1.5s infinite; }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(16,185,129,0.7); }
+      50% { opacity: 0.6; box-shadow: 0 0 0 6px rgba(16,185,129,0); }
+    }
 
-<!-- REKAP -->
-<div class="card"><h3 style="margin:0">📊 Progres Rekap</h3><p id="progresTxt" class="muted"></p><div class="bar"><i id="progresBar" style="width:0%"></i></div>
-<div class="grid3" style="margin-top:12px"><div class="stat"><small id="p1name">Paslon 01</small><b id="s1">0</b></div><div class="stat"><small id="p2name">Paslon 02</small><b id="s2">0</b></div><div class="stat"><small id="p3name">Paslon 03</small><b id="s3">0</b></div></div>
-<p class="muted" id="totalTxt"></p></div>
+    /* Main */
+    .main {
+      flex: 1; max-width: 1100px; width: 100%;
+      margin: -40px auto 0; padding: 0 16px 32px;
+      position: relative; z-index: 3;
+    }
 
-<!-- NAVIGASI WILAYAH: Kecamatan > Desa (mirip v3.2 tapi 1 halaman) -->
-<div class="card"><h3 style="margin:0">📍 Wilayah</h3>
-<div class="row"><select id="selKec" onchange="onKec()"><option value="">— Pilih Kecamatan —</option></select>
-<select id="selDesa" onchange="onDesa()"><option value="">— Pilih Desa —</option></select></div>
-<div id="desaView"></div></div>
+    /* Stat grid */
+    .stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 20px; }
+    @media (max-width: 640px) { .stat-grid { grid-template-columns: 1fr; gap: 10px; } }
+    .stat-card {
+      background: var(--card); border-radius: 16px; padding: 18px 16px;
+      box-shadow: 0 4px 16px rgba(15,23,42,0.08);
+      border: 1px solid #e2e8f0; display: flex; align-items: center; gap: 12px;
+    }
+    .stat-icon {
+      width: 44px; height: 44px; border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 20px; flex-shrink: 0;
+    }
+    .stat-icon.blue { background: #dbeafe; }
+    .stat-icon.green { background: #dcfce7; }
+    .stat-icon.amber { background: #fef3c7; }
+    .stat-label { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin: 0 0 2px; }
+    .stat-value { font-size: 22px; font-weight: 900; margin: 0; letter-spacing: -0.5px; }
 
-<!-- PANEL ADMIN: Users / Config / Log -->
-<div id="panelUsers" class="card hidden"><h3>Kelola Akun</h3>
-<input id="nu" placeholder="Username baru"><input id="np" placeholder="PIN baru"><input id="nn" placeholder="Nama tampilan">
-<select id="nr" onchange="isiScope()"><option value="saksi">Saksi TPS</option><option value="desa">Admin Desa</option><option value="kecamatan">Admin Kecamatan</option><option value="super">Super Admin</option></select>
-<select id="ns"></select><button class="green" onclick="addUser()">+ Tambah Akun</button><div id="userList"></div></div>
+    /* Section */
+    .section {
+      background: var(--card); border-radius: 18px; padding: 20px 18px;
+      box-shadow: 0 4px 16px rgba(15,23,42,0.06);
+      border: 1px solid #e2e8f0; margin-bottom: 20px;
+    }
+    .section-title {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 16px; padding-bottom: 12px; border-bottom: 2px solid #f1f5f9;
+    }
+    .section-title h3 {
+      margin: 0; font-size: 16px; font-weight: 800; color: var(--primary-dark);
+      display: flex; align-items: center; gap: 8px;
+    }
+    .section-title .sub { font-size: 11px; color: var(--muted); font-weight: 600; }
 
-<div id="panelCfg" class="card hidden"><h3>Pengaturan Kabupaten</h3>
-<input id="cKab" placeholder="Nama Kabupaten"><input id="c1" placeholder="Paslon 01"><input id="c2" placeholder="Paslon 02"><input id="c3" placeholder="Paslon 03">
-<label><input type="checkbox" id="cKec" style="width:auto"> Aktifkan Admin Kecamatan</label><br><br>
-<button class="green" onclick="saveCfg()">Simpan Pengaturan</button></div>
+    /* Vote cards */
+    .vote-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+    @media (max-width: 768px) { .vote-grid { grid-template-columns: 1fr; } }
+    .vote-card {
+      padding: 18px 16px; border-radius: 14px; border: 2px solid #e2e8f0;
+      background: #f8fafc; position: relative; overflow: hidden; transition: all 0.3s;
+    }
+    .vote-card.p1 { border-color: #1e3a8a; background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); }
+    .vote-card.p2 { border-color: #b45309; background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%); }
+    .vote-card.p3 { border-color: #15803d; background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%); }
+    .vote-card.leader::after {
+      content: '🏆'; position: absolute; top: 12px; right: 12px; font-size: 18px;
+    }
+    .vote-num { font-size: 11px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
+    .vote-card.p1 .vote-num { color: #1e3a8a; }
+    .vote-card.p2 .vote-num { color: #b45309; }
+    .vote-card.p3 .vote-num { color: #15803d; }
+    .vote-name { font-size: 14px; font-weight: 800; margin: 0 0 12px; color: var(--text); line-height: 1.3; min-height: 36px; }
+    .vote-count { font-size: 28px; font-weight: 900; letter-spacing: -1px; line-height: 1; margin: 0; }
+    .vote-card.p1 .vote-count { color: #1e3a8a; }
+    .vote-card.p2 .vote-count { color: #b45309; }
+    .vote-card.p3 .vote-count { color: #15803d; }
+    .vote-pct { font-size: 13px; font-weight: 700; color: var(--muted); margin: 4px 0 10px; }
+    .progress-track { height: 8px; background: rgba(255,255,255,0.6); border-radius: 999px; overflow: hidden; }
+    .progress-fill { height: 100%; border-radius: 999px; transition: width 1s ease-out; }
+    .p1 .progress-fill { background: linear-gradient(90deg, #1e3a8a, #3b82f6); }
+    .p2 .progress-fill { background: linear-gradient(90deg, #b45309, #f59e0b); }
+    .p3 .progress-fill { background: linear-gradient(90deg, #15803d, #22c55e); }
 
-<div id="panelLog" class="card hidden"><h3>Riwayat Aktivitas</h3><div id="logList"></div></div>
+    /* Kecamatan breakdown */
+    .kec-list { display: flex; flex-direction: column; gap: 10px; }
+    .kec-item { border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; background: #f8fafc; }
+    .kec-header {
+      padding: 14px 16px; display: flex; align-items: center; justify-content: space-between;
+      cursor: pointer; user-select: none; transition: background 0.2s;
+    }
+    .kec-header:hover { background: #eff6ff; }
+    .kec-info h4 { margin: 0 0 2px; font-size: 14px; font-weight: 800; color: var(--text); }
+    .kec-info p { margin: 0; font-size: 11px; color: var(--muted); font-weight: 600; }
+    .kec-totals { display: flex; gap: 14px; align-items: center; font-size: 12px; }
+    .kec-total-item { text-align: right; }
+    .kec-total-item span:first-child { display: block; font-size: 10px; color: var(--muted); font-weight: 700; text-transform: uppercase; }
+    .kec-total-item span:last-child { font-weight: 800; font-size: 13px; }
+    .kec-chevron { color: var(--muted); transition: transform 0.3s; font-size: 12px; margin-left: 8px; }
+    .kec-item.open .kec-chevron { transform: rotate(180deg); }
+    .kec-body { max-height: 0; overflow: hidden; transition: max-height 0.4s ease; background: #fff; border-top: 1px solid #e2e8f0; }
+    .kec-item.open .kec-body { max-height: 400px; }
+    .kec-body-inner { padding: 14px 16px; }
+    .kec-bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+    .kec-bar-row:last-child { margin-bottom: 0; }
+    .kec-bar-label { font-size: 11px; font-weight: 700; width: 80px; flex-shrink: 0; color: var(--muted); }
+    .kec-bar-track { flex: 1; height: 6px; background: #f1f5f9; border-radius: 999px; overflow: hidden; }
+    .kec-bar-fill { height: 100%; border-radius: 999px; transition: width 0.8s; }
+    .kec-bar-fill.p1 { background: #1e3a8a; }
+    .kec-bar-fill.p2 { background: #f59e0b; }
+    .kec-bar-fill.p3 { background: #15803d; }
+    .kec-bar-val { font-size: 11px; font-weight: 800; width: 60px; text-align: right; flex-shrink: 0; }
+
+    /* States */
+    .state-box {
+      text-align: center; padding: 40px 20px; background: var(--card);
+      border-radius: 18px; box-shadow: 0 4px 16px rgba(15,23,42,0.06);
+    }
+    .state-box .emoji { font-size: 48px; margin-bottom: 12px; }
+    .state-box h3 { margin: 0 0 6px; font-size: 18px; }
+    .state-box p { margin: 0 0 16px; color: var(--muted); font-size: 13px; line-height: 1.5; }
+    .btn {
+      background: var(--primary); color: #fff; border: none;
+      padding: 10px 20px; border-radius: 10px;
+      font-size: 13px; font-weight: 700; cursor: pointer;
+      transition: all 0.2s; display: inline-flex; align-items: center; gap: 6px;
+    }
+    .btn:hover { background: #0c3e6a; }
+    .btn:active { transform: scale(0.98); }
+    .btn.amber { background: var(--amber); color: var(--primary-dark); }
+    .btn.amber:hover { background: #d97706; }
+
+    /* Skeleton */
+    .skeleton {
+      background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
+      background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: 8px;
+    }
+    @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
+    /* Footer */
+    .footer {
+      background: var(--primary-dark); color: #94a3b8;
+      text-align: center; padding: 18px 16px;
+      font-size: 11px; border-top: 3px solid var(--amber);
+    }
+    .footer strong { color: #fff; }
+    .footer p { margin: 3px 0; }
+
+    /* Modal URL */
+    .modal-backdrop {
+      position: fixed; inset: 0; background: rgba(15,23,42,0.7);
+      z-index: 200; display: none; align-items: center; justify-content: center; padding: 16px;
+    }
+    .modal-backdrop.show { display: flex; }
+    .modal-box {
+      background: #fff; border-radius: 18px; max-width: 480px; width: 100%;
+      overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+    }
+    .modal-head { background: linear-gradient(135deg, #0f2537 0%, #1e3a8a 100%); color: #fff; padding: 16px 20px; font-weight: 800; font-size: 15px; }
+    .modal-body { padding: 20px; }
+    .modal-body label { display: block; font-size: 11px; font-weight: 800; color: var(--text); text-transform: uppercase; margin-bottom: 6px; }
+    .modal-body input {
+      width: 100%; padding: 12px 14px; border: 1px solid var(--border);
+      border-radius: 10px; font-size: 13px; font-family: monospace; outline: none; transition: border 0.2s;
+    }
+    .modal-body input:focus { border-color: var(--primary); }
+    .modal-body p.hint { font-size: 11px; color: var(--muted); margin: 8px 0 16px; line-height: 1.5; }
+    .modal-actions { display: flex; gap: 8px; justify-content: flex-end; }
+
+    @keyframes fadeInUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+    .fade-in { animation: fadeInUp 0.4s ease-out; }
+  </style>
+</head>
+<body>
+
+<header class="header">
+  <div class="header-inner">
+    <div class="brand">
+      <div class="brand-logo">S</div>
+      <div class="brand-text">
+        <h1>SIPEMILU</h1>
+        <p id="header-subtitle">Hasil Rekapitulasi Pemilu</p>
+      </div>
+    </div>
+    <div class="header-actions">
+      <button class="btn-icon" onclick="refreshData()" title="Muat ulang">
+        <span>⟳</span><span class="hide-mobile">Refresh</span>
+      </button>
+      <a href="dashboard.html" class="btn-icon" title="Admin Dashboard">
+        <span>🔒</span><span class="hide-mobile">Admin</span>
+      </a>
+    </div>
+  </div>
+</header>
+
+<section class="hero">
+  <div class="hero-inner">
+    <span class="hero-label">📊 Hasil Sementara</span>
+    <h2 id="hero-title">Memuat data...</h2>
+    <p id="hero-subtitle">Rekapitulasi suara dari seluruh TPS</p>
+    <div id="live-badge-wrap" style="display:none;">
+      <span class="live-badge">
+        <span class="live-dot"></span>
+        <span id="live-text">Live</span>
+      </span>
+    </div>
+  </div>
+</section>
+
+<main class="main" id="main-content"></main>
+
+<footer class="footer">
+  <p><strong>SIPEMILU v3.2</strong> • Sistem Rekapitulasi Pemilu</p>
+  <p id="footer-updated">Belum ada data</p>
+</footer>
+
+<div class="modal-backdrop" id="modal-url">
+  <div class="modal-box">
+    <div class="modal-head">⚙️ Konfigurasi Server</div>
+    <div class="modal-body">
+      <label for="input-url">URL Web App Google Apps Script</label>
+      <input type="url" id="input-url" placeholder="https://script.google.com/macros/s/.../exec" />
+      <p class="hint">Masukkan URL server yang sama dengan dashboard admin. Data statistik akan diambil dari endpoint publik.</p>
+      <div class="modal-actions">
+        <button class="btn amber" onclick="saveUrl()">Simpan & Muat Data</button>
+      </div>
+    </div>
+  </div>
 </div>
 
 <script>
-let S={user:null,auth:null,data:[],config:{},users:[],logs:[],kecId:'',desaId:''};
-const URL_KEY='sipemilu_lite_url', AUTH_KEY='sipemilu_lite_auth';
-const $=id=>document.getElementById(id);
-const fmt=n=>Number(n||0).toLocaleString('id-ID');
-const esc=s=>String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;');
+  const GSHEET_URL_KEY = 'sipemilu_gsheet_webapp_url_v1';
+  let gsheetUrl = localStorage.getItem(GSHEET_URL_KEY) || '';
+  let appData = null;
+  let refreshTimer = null;
+  let lastUpdate = null;
 
-// --- API: 1 pintu, sama seperti v3.2 ---
-async function api(action, extra={}){
-  const url=localStorage.getItem(URL_KEY); if(!url) throw new Error('Isi URL Web App dulu di Login.');
-  const res=await fetch(url,{method:'POST', body:JSON.stringify({action, auth:S.auth, ...extra})});
-  const j=await res.json(); if(j.status!=='success') throw new Error(j.message); return j;
-}
-async function sync(showToast=true){
-  try{
-    const j=await api(S.user?'sync':'login');
-    S.user=j.user; S.data=j.data; S.config=j.config; S.users=j.users||[]; S.logs=j.logs||[];
-    render(); if(showToast) alert('Data tersinkron.');
-  }catch(e){ alert(e.message); }
-}
-async function doLogin(){
-  const url=$('url').value.trim(); if(!url) return alert('Isi URL Web App.');
-  localStorage.setItem(URL_KEY,url);
-  S.auth={username:$('u').value.trim(), pin:$('p').value.trim()};
-  try{ const j=await api('login'); S.user=j.user; S.data=j.data; S.config=j.config; S.users=j.users||[]; S.logs=j.logs||[];
-    sessionStorage.setItem(AUTH_KEY, JSON.stringify({user:S.user, auth:S.auth})); render(); }
-  catch(e){ alert(e.message); }
-}
-function showLogin(){ $('loginCard').classList.toggle('hidden'); }
-function logout(){ sessionStorage.removeItem(AUTH_KEY); S.auth=null; S.user=null; render(); }
+  const $ = id => document.getElementById(id);
+  const fmt = n => (n || 0).toLocaleString('id-ID');
+  const esc = s => s == null ? '' : String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 
-// --- RENDER ---
-function render(){
-  $('sub').textContent=(S.config.kabupatenName||'Kabupaten')+' • '+(S.user?('Login: '+S.user.displayName):'Belum login — data kosong, login dulu');
-  $('loginCard').classList.toggle('hidden', !!S.user);
-  $('banner').classList.toggle('hidden', !S.user);
-  $('btnSync').classList.toggle('hidden', !S.user);
-  $('btnLogin').textContent=S.user?'Ganti Akun':'Login Petugas';
-  if(S.user){
-    $('roleBadge').textContent=S.user.role.toUpperCase();
-    $('roleUser').textContent=S.user.displayName+' (@'+S.user.username+')';
-    $('roleScope').textContent='Scope: '+(S.user.scopeId||'KABUPATEN');
-    $('btnUsers').classList.toggle('hidden', S.user.role==='saksi');
-    $('btnCfg').classList.toggle('hidden', S.user.role!=='super');
-    $('btnLog').classList.toggle('hidden', S.user.role!=='super');
+  function showUrlModal() { $('input-url').value = gsheetUrl || ''; $('modal-url').classList.add('show'); }
+  function saveUrl() {
+    const v = $('input-url').value.trim();
+    if (!v) return;
+    gsheetUrl = v; localStorage.setItem(GSHEET_URL_KEY, v);
+    $('modal-url').classList.remove('show'); loadData();
   }
-  // Rekap global dari data yang BOLEH dilihat user (sudah difilter server)
-  let tpsTotal=0, tpsIsi=0, a=0,b=0,c=0,sah=0,tdk=0;
-  S.data.forEach(k=>k.desaList.forEach(d=>{ tpsTotal+=d.tpsList.length; d.suaraList.forEach(s=>{ tpsIsi++; a+=s.suara1; b+=s.suara2; c+=s.suara3; sah+=s.totalSah; tdk+=s.tidakSah; }); }));
-  const pct=tpsTotal?Math.round(tpsIsi/tpsTotal*100):0;
-  $('progresTxt').textContent=`${tpsIsi} dari ${tpsTotal} TPS sudah input • ${pct}%`;
-  $('progresBar').style.width=pct+'%'; $('s1').textContent=fmt(a); $('s2').textContent=fmt(b); $('s3').textContent=fmt(c);
-  $('p1name').textContent=S.config.paslon1||'Paslon 01'; $('p2name').textContent=S.config.paslon2||'Paslon 02'; $('p3name').textContent=S.config.paslon3||'Paslon 03';
-  $('totalTxt').textContent=`Total sah: ${fmt(sah)} • Tidak sah: ${fmt(tdk)} • Total: ${fmt(sah+tdk)}`;
-  // Dropdown wilayah
-  $('selKec').innerHTML='<option value="">— Pilih Kecamatan —</option>'+S.data.map(k=>`<option value="${k.id}">${esc(k.nama)}</option>`).join('');
-  if(S.kecId) $('selKec').value=S.kecId;
-  renderDesa();
-}
-function onKec(){ S.kecId=$('selKec').value; S.desaId=''; renderDesa(); }
-function onDesa(){ S.desaId=$('selDesa').value; renderDesa(); }
-function curDesa(){
-  const k=S.data.find(x=>x.id===S.kecId); if(!k) return null;
-  return k.desaList.find(d=>d.id===S.desaId)||null;
-}
-function renderDesa(){
-  const k=S.data.find(x=>x.id===S.kecId);
-  $('selDesa').innerHTML='<option value="">— Pilih Desa —</option>'+(k?k.desaList.map(d=>`<option value="${d.id}">${esc(d.nama)}</option>`).join(''):'');
-  if(S.desaId) $('selDesa').value=S.desaId;
-  const d=curDesa();
-  if(!d){ $('desaView').innerHTML='<p class="muted">Pilih kecamatan & desa untuk lihat TPS, pendukung, dan suara.</p>'; return; }
-  const canEdit=S.user && S.user.role!=='saksi' && S.user.role!=='kecamatan';
-  const tot=d.suaraList.reduce((x,s)=>({a:x.a+s.suara1,b:x.b+s.suara2,c:x.c+s.suara3,sah:x.sah+s.totalSah,tdk:x.tdk+s.tidakSah}),{a:0,b:0,c:0,sah:0,tdk:0});
-  $('desaView').innerHTML=`
-  <h4>${esc(d.nama)} — ${d.tpsList.length} TPS • ${d.pemilihList.length} Pendukung KTP</h4>
-  <p class="muted">Total desa: P1 ${fmt(tot.a)} • P2 ${fmt(tot.b)} • P3 ${fmt(tot.c)} • Sah ${fmt(tot.sah)} • Tidak sah ${fmt(tot.tdk)}</p>
-  ${canEdit?`<div class="row"><button onclick="showFormWilayah('tps')">+ Tambah TPS</button>${S.user.role==='super'?`<button onclick="showFormWilayah('desa')">+ Tambah Desa</button><button onclick="showFormWilayah('kec')">+ Tambah Kecamatan</button>`:''}</div><div id="formWilayah"></div>`:''}
-  <h4>📝 Suara per TPS</h4>
-  <table><tr><th>TPS</th><th>Status</th><th>P1</th><th>P2</th><th>P3</th><th>Sah</th><th>Tdk Sah</th><th>Bukti</th><th>Aksi</th></tr>
-  ${d.tpsList.map(t=>{
-    const s=d.suaraList.find(x=>x.tpsId===t.id);
-    return `<tr><td><b>${esc(t.nama)}</b></td><td>${s?`<span class="badge ${s.status==='Final'?'final':'draft'}">${s.status}</span>`:'<span class="muted">Belum input</span>'}</td>
-    <td>${fmt(s?.suara1)}</td><td>${fmt(s?.suara2)}</td><td>${fmt(s?.suara3)}</td><td>${fmt(s?.totalSah)}</td><td>${fmt(s?.tidakSah)}</td>
-    <td>${s?.fotoCHasil?`<a href="${s.fotoCHasil}" target="_blank">📷 Lihat</a>`:'-'}</td>
-    <td>${S.user?`<button onclick="openSuara('${t.id}','${s?s.id:''}')">✏️ ${s?'Edit':'Input'}</button>`:''}</td></tr>`;
-  }).join('')}
-  <tr style="background:#f8fafc;font-weight:800"><td>TOTAL</td><td></td><td>${fmt(tot.a)}</td><td>${fmt(tot.b)}</td><td>${fmt(tot.c)}</td><td>${fmt(tot.sah)}</td><td>${fmt(tot.tdk)}</td><td></td><td></td></tr></table>
-  <div id="formSuara"></div>
-  ${canEdit?`<h4>👥 Pendukung KTP (hanya Admin Desa / Super)</h4>
-  <button onclick="showFormPemilih()">+ Tambah Pendukung</button><div id="formPemilih"></div>
-  <table><tr><th>Nama</th><th>NIK</th><th>TPS</th><th>Foto</th><th></th></tr>${d.pemilihList.map(p=>`<tr><td>${esc(p.nama)}</td><td>${esc(p.nik)}</td><td>${esc(p.tps)}</td><td>${p.fotoKtp?`<a href="${p.fotoKtp}" target="_blank"><img class="thumb" src="${p.fotoKtp}"></a>`:'-'}</td><td><button class="red" onclick="hapusPemilih('${p.id}')">Hapus</button></td></tr>`).join('')||'<tr><td colspan="5" class="muted">Belum ada pendukung.</td></tr>'}</table>`:''}
-  `;
-}
-function showFormWilayah(jenis){
-  $('formWilayah').innerHTML=`<div class="card" style="background:#f8fafc"><input id="wNama" placeholder="Nama ${jenis}"><button class="green" onclick="simpanWilayah('${jenis}')">Simpan</button></div>`;
-}
-async function simpanWilayah(jenis){
-  const nama=$('wNama').value.trim(); if(!nama) return alert('Isi nama.');
-  try{
-    if(jenis==='kec') await api('addKecamatan',{id:'kec-'+Date.now(), nama, kode:''});
-    if(jenis==='desa') await api('addDesa',{id:'desa-'+Date.now(), kecamatanId:S.kecId, nama, kode:''});
-    if(jenis==='tps') await api('addTps',{kecamatanId:S.kecId, desaId:S.desaId, nama});
-    await sync(false);
-  }catch(e){ alert(e.message); }
-}
-function openSuara(tpsId, suaraId){
-  const d=curDesa(); const s=d.suaraList.find(x=>x.id===suaraId)||{};
-  const isFinal=s.status==='Final';
-  $('formSuara').innerHTML=`<div class="card" style="background:#fefce8"><h4>${suaraId?'Edit':'Input'} Suara — ${esc(d.tpsList.find(t=>t.id===tpsId)?.nama||'')}</h4>
-  ${isFinal?'<p class="muted">⚠️ Sudah FINAL. Hanya Super Admin yang bisa buka / ubah.</p>':''}
-  <div class="row"><input id="f1" type="number" placeholder="Paslon 01" value="${s.suara1||''}"><input id="f2" type="number" placeholder="Paslon 02" value="${s.suara2||''}"><input id="f3" type="number" placeholder="Paslon 03" value="${s.suara3||''}"></div>
-  <input id="ft" type="number" placeholder="Suara Tidak Sah" value="${s.tidakSah||''}">
-  <label class="muted">Foto C.Hasil (opsional)</label><input id="ff" type="file" accept="image/*">
-  <div class="row"><button class="green" onclick="simpanSuara('${tpsId}','${suaraId}')">💾 Simpan</button>
-  ${suaraId&&S.user.role!=='saksi'?`<button class="gold" onclick="ubahStatus('${suaraId}','${isFinal?'Draft':'Final'}')">${isFinal?'🔓 Buka ke Draft':'🔒 Kunci Final'}</button><button class="red" onclick="hapusSuara('${suaraId}')">🗑️ Hapus</button>`:''}</div></div>`;
-  $('formSuara').scrollIntoView({behavior:'smooth'});
-}
-function fileToBase64(file){ return new Promise(res=>{ if(!file) return res(''); const r=new FileReader(); r.onload=()=>res(r.result); r.readAsDataURL(file); }); }
-async function simpanSuara(tpsId, suaraId){
-  try{
-    const foto=await fileToBase64($('ff').files[0]);
-    const payload={tpsId, suara1:$('f1').value||0, suara2:$('f2').value||0, suara3:$('f3').value||0, tidakSah:$('ft').value||0, fotoCHasil:foto};
-    if(suaraId){ payload.id=suaraId; await api('editSuara', payload); } else { payload.id='suara-'+Date.now(); await api('addSuara', payload); }
-    await sync(false); alert('Suara tersimpan (Draft).');
-  }catch(e){ alert(e.message); }
-}
-async function ubahStatus(id,status){ try{ await api('setSuaraStatus',{id,status}); await sync(false); }catch(e){ alert(e.message); } }
-async function hapusSuara(id){ if(!confirm('Hapus suara ini?')) return; try{ await api('deleteSuara',{id}); await sync(false); }catch(e){ alert(e.message); } }
-function showFormPemilih(){
-  const d=curDesa();
-  $('formPemilih').innerHTML=`<div class="card" style="background:#f0fdf4"><input id="pn" placeholder="Nama Lengkap"><input id="pnik" placeholder="NIK KTP">
-  <select id="ptps">${d.tpsList.map(t=>`<option value="${t.id}">${esc(t.nama)}</option>`).join('')}</select>
-  <input id="pf" type="file" accept="image/*"><button class="green" onclick="simpanPemilih()">Simpan Pendukung</button></div>`;
-}
-async function simpanPemilih(){
-  try{ const foto=await fileToBase64($('pf').files[0]);
-    await api('addPemilih',{id:'pem-'+Date.now(), tpsId:$('ptps').value, nama:$('pn').value.trim(), nik:$('pnik').value.trim(), fotoKtp:foto});
-    await sync(false);
-  }catch(e){ alert(e.message); }
-}
-async function hapusPemilih(id){ if(!confirm('Hapus pendukung ini?')) return; try{ await api('deletePemilih',{id}); await sync(false); }catch(e){ alert(e.message); } }
 
-// --- USERS / CONFIG / LOG ---
-function showUsers(){
-  $('panelUsers').classList.toggle('hidden');
-  $('panelCfg').classList.add('hidden'); $('panelLog').classList.add('hidden'); isiScope(); renderUsers();
-}
-function isiScope(){
-  const role=$('nr').value;
-  let opts='<option value="">— Pilih Scope —</option>';
-  if(role==='super') opts+='<option value="">KABUPATEN (semua)</option>';
-  if(role==='kecamatan') opts+=S.data.map(k=>`<option value="${k.id}">${esc(k.nama)}</option>`).join('');
-  if(role==='desa') opts+=S.data.flatMap(k=>k.desaList.map(d=>`<option value="${d.id}">${esc(k.nama)} — ${esc(d.nama)}</option>`)).join('');
-  if(role==='saksi') opts+=S.data.flatMap(k=>k.desaList.flatMap(d=>d.tpsList.map(t=>`<option value="${t.id}">${esc(k.nama)} — ${esc(d.nama)} — ${esc(t.nama)}</option>`))).join('');
-  $('ns').innerHTML=opts;
-}
-function renderUsers(){
-  $('userList').innerHTML='<table><tr><th>User</th><th>Role</th><th>Scope</th><th></th></tr>'+S.users.map(u=>`<tr><td>${esc(u.displayName)}<br><small class="muted">@${esc(u.username)}</small></td><td>${esc(u.role)}</td><td><small>${esc(u.scopeId||'KABUPATEN')}</small></td><td>${u.username!=='superadmin'?`<button class="red" onclick="hapusUser('${u.id}')">Hapus</button>`:''}</td></tr>`).join('')+'</table>';
-}
-async function addUser(){ try{ await api('addUser',{username:$('nu').value.trim(), pin:$('np').value.trim(), displayName:$('nn').value.trim(), role:$('nr').value, scopeId:$('ns').value}); await sync(false); alert('Akun ditambah.'); }catch(e){ alert(e.message); } }
-async function hapusUser(id){ if(!confirm('Hapus akun ini?')) return; try{ await api('deleteUser',{userId:id}); await sync(false); }catch(e){ alert(e.message); } }
-function showConfig(){
-  $('panelCfg').classList.toggle('hidden'); $('panelUsers').classList.add('hidden'); $('panelLog').classList.add('hidden');
-  $('cKab').value=S.config.kabupatenName||''; $('c1').value=S.config.paslon1||''; $('c2').value=S.config.paslon2||''; $('c3').value=S.config.paslon3||'';
-  $('cKec').checked=S.config.enableAdminKecamatan==='true';
-}
-async function saveCfg(){ try{ await api('updateConfig',{kabupatenName:$('cKab').value, paslon1:$('c1').value, paslon2:$('c2').value, paslon3:$('c3').value, enableAdminKecamatan:$('cKec').checked}); await sync(false); alert('Pengaturan tersimpan.'); }catch(e){ alert(e.message); } }
-function showLog(){
-  $('panelLog').classList.toggle('hidden'); $('panelUsers').classList.add('hidden'); $('panelCfg').classList.add('hidden');
-  $('logList').innerHTML='<table><tr><th>Waktu</th><th>User</th><th>Aksi</th><th>Detail</th></tr>'+S.logs.map(l=>`<tr><td><small>${esc(l.Waktu)}</small></td><td>${esc(l.Username)}</td><td>${esc(l.Aksi)}</td><td><small>${esc(l.Target)} — ${esc(l.Detail)}</small></td></tr>`).join('')+'</table>';
-}
-window.addEventListener('DOMContentLoaded', ()=>{
-  $('url').value=localStorage.getItem(URL_KEY)||'';
-  const saved=sessionStorage.getItem(AUTH_KEY);
-  if(saved){ try{ const p=JSON.parse(saved); S.auth=p.auth; S.user=p.user; sync(false); }catch(e){} }
-  render();
-});
-</script></body></html>
+  async function fetchData() {
+    if (!gsheetUrl) return { needsSetup: true };
+    try {
+      const res = await fetch(gsheetUrl, {
+        method: 'POST', redirect: 'follow',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action: 'publicStats' })
+      });
+      const r = await res.json();
+      return r.status === 'success' ? r : { error: r.message || 'Server menolak permintaan' };
+    } catch (e) { return { error: e.message || 'Gagal terhubung ke server' }; }
+  }
+
+  async function loadData() {
+    renderLoading();
+    const r = await fetchData();
+    if (r.needsSetup) return renderSetupNeeded();
+    if (r.error) return renderError(r.error);
+
+    appData = {
+      config: r.config || { kabupatenName: 'Kabupaten', paslon1: 'Paslon 01', paslon2: 'Paslon 02', paslon3: 'Paslon 03' },
+      data: Array.isArray(r.data) ? r.data : []
+    };
+    lastUpdate = new Date();
+    renderDashboard();
+    startAutoRefresh();
+  }
+
+  function refreshData() { if (!gsheetUrl) return showUrlModal(); loadData(); }
+
+  function startAutoRefresh() {
+    if (refreshTimer) clearInterval(refreshTimer);
+    refreshTimer = setInterval(async () => {
+      const r = await fetchData();
+      if (r && !r.error && !r.needsSetup) {
+        appData = { config: r.config || appData.config, data: Array.isArray(r.data) ? r.data : [] };
+        lastUpdate = new Date();
+        renderDashboard();
+      }
+    }, 30000);
+  }
+
+  function computeStats(data) {
+    const s = {
+      totalS1: 0, totalS2: 0, totalS3: 0, totalTidakSah: 0,
+      totalPemilih: 0, totalTps: 0, totalTpsFinal: 0, totalSuaraEntries: 0, perKecamatan: []
+    };
+    (data || []).forEach(kec => {
+      const k = { id: kec.id, nama: kec.nama, kode: kec.kode, s1: 0, s2: 0, s3: 0, tidakSah: 0, pemilih: 0, tps: 0, tpsFinal: 0, suaraEntries: 0 };
+      (kec.desaList || []).forEach(desa => {
+        k.pemilih += (desa.pemilihList || []).length;
+        k.tps += (desa.tpsList || []).length;
+        (desa.suaraList || []).forEach(x => {
+          k.s1 += x.suara1 || 0; k.s2 += x.suara2 || 0; k.s3 += x.suara3 || 0;
+          k.tidakSah += x.tidakSah || 0; k.suaraEntries++;
+          if (x.status === 'Final') k.tpsFinal++;
+        });
+      });
+      s.totalS1 += k.s1; s.totalS2 += k.s2; s.totalS3 += k.s3; s.totalTidakSah += k.tidakSah;
+      s.totalPemilih += k.pemilih; s.totalTps += k.tps; s.totalTpsFinal += k.tpsFinal; s.totalSuaraEntries += k.suaraEntries;
+      s.perKecamatan.push(k);
+    });
+    s.totalSah = s.totalS1 + s.totalS2 + s.totalS3;
+    return s;
+  }
+
+  function renderLoading() {
+    $('main-content').innerHTML = `
+      <div class="stat-grid">
+        ${[1,2,3].map(() => `<div class="stat-card"><div class="skeleton" style="width:44px;height:44px;border-radius:12px;"></div><div style="flex:1;"><div class="skeleton" style="height:11px;width:80px;margin-bottom:6px;"></div><div class="skeleton" style="height:22px;width:100px;"></div></div></div>`).join('')}
+      </div>
+      <div class="section"><div class="skeleton" style="height:200px;"></div></div>`;
+    $('hero-title').textContent = 'Memuat data...';
+    $('live-badge-wrap').style.display = 'none';
+  }
+
+  function renderSetupNeeded() {
+    $('main-content').innerHTML = `
+      <div class="state-box fade-in">
+        <div class="emoji">⚙️</div>
+        <h3>Konfigurasi Server Diperlukan</h3>
+        <p>Hubungkan halaman ini dengan backend Google Apps Script untuk menampilkan hasil pemilu secara real-time.</p>
+        <button class="btn amber" onclick="showUrlModal()">⚙️ Atur URL Server</button>
+      </div>`;
+    $('hero-title').textContent = 'Selamat Datang';
+    $('hero-subtitle').textContent = 'Atur URL server untuk mulai menampilkan hasil';
+  }
+
+  function renderError(msg) {
+    $('main-content').innerHTML = `
+      <div class="state-box fade-in">
+        <div class="emoji">⚠️</div>
+        <h3>Gagal Memuat Data</h3>
+        <p>${esc(msg)}</p>
+        <button class="btn" onclick="refreshData()">🔄 Coba Lagi</button>
+        <button class="btn amber" onclick="showUrlModal()" style="margin-left:8px;">⚙️ Ubah URL</button>
+      </div>`;
+    $('hero-title').textContent = 'Terjadi Kesalahan';
+  }
+
+  function renderDashboard() {
+    if (!appData) return;
+    const { config, data } = appData;
+    const st = computeStats(data);
+
+    $('hero-title').textContent = config.kabupatenName || 'Kabupaten';
+    $('hero-subtitle').textContent = `Rekapitulasi ${st.totalSuaraEntries} dari ${st.totalTps} TPS terdaftar`;
+    $('header-subtitle').textContent = `Hasil Pemilu ${config.kabupatenName || ''}`;
+
+    // Live badge
+    if (st.totalSuaraEntries > 0) {
+      $('live-badge-wrap').style.display = 'block';
+      $('live-text').textContent = `Live • ${st.totalTpsFinal} TPS Final`;
+    } else {
+      $('live-badge-wrap').style.display = 'none';
+    }
+
+    // Leader
+    const hasVotes = st.totalSah > 0;
+    const leader = !hasVotes ? 0
+      : (st.totalS1 >= st.totalS2 && st.totalS1 >= st.totalS3) ? 1
+      : (st.totalS2 >= st.totalS3) ? 2 : 3;
+
+    const totalSah = st.totalSah || 1;
+    const p1 = st.totalS1 ? st.totalS1 / totalSah * 100 : 0;
+    const p2 = st.totalS2 ? st.totalS2 / totalSah * 100 : 0;
+    const p3 = st.totalS3 ? st.totalS3 / totalSah * 100 : 0;
+
+    $('main-content').innerHTML = `
+      <div class="stat-grid fade-in">
+        <div class="stat-card">
+          <div class="stat-icon blue">🗳️</div>
+          <div><p class="stat-label">Total Suara Sah</p><p class="stat-value" style="color:#1e3a8a;">${fmt(st.totalSah)}</p></div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon green">👥</div>
+          <div><p class="stat-label">Pemilih Terdata</p><p class="stat-value" style="color:#15803d;">${fmt(st.totalPemilih)}</p></div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon amber">📍</div>
+          <div><p class="stat-label">TPS Terlapor</p><p class="stat-value" style="color:#b45309;">${st.totalSuaraEntries} / ${st.totalTps}</p></div>
+        </div>
+      </div>
+
+      <div class="section fade-in">
+        <div class="section-title">
+          <h3>📊 Perolehan Suara Paslon</h3>
+          <span class="sub">Dari ${st.totalSuaraEntries} TPS</span>
+        </div>
+        <div class="vote-grid">
+          <div class="vote-card p1 ${leader === 1 ? 'leader' : ''}">
+            <div class="vote-num">PASLON 01</div>
+            <p class="vote-name">${esc(config.paslon1)}</p>
+            <p class="vote-count">${fmt(st.totalS1)}</p>
+            <p class="vote-pct">${p1.toFixed(1)}% suara sah</p>
+            <div class="progress-track"><div class="progress-fill" style="width:${p1}%"></div></div>
+          </div>
+          <div class="vote-card p2 ${leader === 2 ? 'leader' : ''}">
+            <div class="vote-num">PASLON 02</div>
+            <p class="vote-name">${esc(config.paslon2)}</p>
+            <p class="vote-count">${fmt(st.totalS2)}</p>
+            <p class="vote-pct">${p2.toFixed(1)}% suara sah</p>
+            <div class="progress-track"><div class="progress-fill" style="width:${p2}%"></div></div>
+          </div>
+          <div class="vote-card p3 ${leader === 3 ? 'leader' : ''}">
+            <div class="vote-num">PASLON 03</div>
+            <p class="vote-name">${esc(config.paslon3)}</p>
+            <p class="vote-count">${fmt(st.totalS3)}</p>
+            <p class="vote-pct">${p3.toFixed(1)}% suara sah</p>
+            <div class="progress-track"><div class="progress-fill" style="width:${p3}%"></div></div>
+          </div>
+        </div>
+        <div style="margin-top:14px;padding:12px 14px;background:#f8fafc;border-radius:10px;border:1px solid #e2e8f0;font-size:12px;color:#64748b;">
+          <strong style="color:#0f172a;">Suara Tidak Sah:</strong> ${fmt(st.totalTidakSah)} suara
+        </div>
+      </div>
+
+      ${st.perKecamatan.length > 0 ? `
+      <div class="section fade-in">
+        <div class="section-title">
+          <h3>🗺️ Rekapitulasi Per Kecamatan</h3>
+          <span class="sub">${st.perKecamatan.length} kecamatan</span>
+        </div>
+        <div class="kec-list">
+          ${st.perKecamatan.map((k, i) => {
+            const tot = k.s1 + k.s2 + k.s3 || 1;
+            const kp1 = k.s1 / tot * 100, kp2 = k.s2 / tot * 100, kp3 = k.s3 / tot * 100;
+            return `
+              <div class="kec-item" id="kec-${i}">
+                <div class="kec-header" onclick="toggleKec(${i})">
+                  <div class="kec-info">
+                    <h4>${esc(k.nama)}</h4>
+                    <p>${k.suaraEntries}/${k.tps} TPS • ${fmt(k.pemilih)} pemilih</p>
+                  </div>
+                  <div class="kec-totals">
+                    <div class="kec-total-item">
+                      <span>Suara Sah</span>
+                      <span style="color:#1e3a8a;">${fmt(k.s1 + k.s2 + k.s3)}</span>
+                    </div>
+                    <span class="kec-chevron">▼</span>
+                  </div>
+                </div>
+                <div class="kec-body">
+                  <div class="kec-body-inner">
+                    <div class="kec-bar-row"><span class="kec-bar-label">01. Paslon</span><div class="kec-bar-track"><div class="kec-bar-fill p1" style="width:${kp1}%"></div></div><span class="kec-bar-val" style="color:#1e3a8a;">${fmt(k.s1)}</span></div>
+                    <div class="kec-bar-row"><span class="kec-bar-label">02. Paslon</span><div class="kec-bar-track"><div class="kec-bar-fill p2" style="width:${kp2}%"></div></div><span class="kec-bar-val" style="color:#b45309;">${fmt(k.s2)}</span></div>
+                    <div class="kec-bar-row"><span class="kec-bar-label">03. Paslon</span><div class="kec-bar-track"><div class="kec-bar-fill p3" style="width:${kp3}%"></div></div><span class="kec-bar-val" style="color:#15803d;">${fmt(k.s3)}</span></div>
+                  </div>
+                </div>
+              </div>`;
+          }).join('')}
+        </div>
+      </div>` : `
+      <div class="state-box fade-in">
+        <div class="emoji">📭</div>
+        <h3>Belum Ada Data</h3>
+        <p>Data hasil pemilu belum tersedia. Silakan cek kembali nanti.</p>
+      </div>`}
+    `;
+
+    $('footer-updated').textContent = `Terakhir diperbarui: ${lastUpdate.toLocaleString('id-ID')}`;
+  }
+
+  function toggleKec(i) {
+    const el = document.getElementById('kec-' + i);
+    if (el) el.classList.toggle('open');
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    if (!gsheetUrl) { renderSetupNeeded(); $('hero-title').textContent = 'Selamat Datang'; }
+    else loadData();
+
+    $('modal-url').addEventListener('click', e => {
+      if (e.target.id === 'modal-url') $('modal-url').classList.remove('show');
+    });
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') $('modal-url').classList.remove('show');
+    });
+  });
+</script>
+
+</body>
+</html>
