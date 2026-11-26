@@ -11,6 +11,52 @@ const authCreator = createClient(supabase.supabaseUrl, supabase.supabaseKey, {
 
 export async function render(container) {
   container.innerHTML = `
+    <style>
+      .tim-group {
+        background: #ffffff;
+        border: 1px solid #cbd5e1;
+        border-radius: 12px;
+        padding: 12px;
+        margin-bottom: 14px;
+      }
+      .tim-group-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding-bottom: 8px;
+        margin-bottom: 8px;
+        border-bottom: 1px solid #e2e8f0;
+        font-size: 13px;
+        font-weight: 800;
+        color: #1e3a8a;
+        text-transform: uppercase;
+      }
+      .tim-item {
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 10px;
+        padding: 10px 12px;
+        margin-top: 8px;
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 10px;
+      }
+      .email-pill {
+        display: inline-block;
+        margin-top: 4px;
+        padding: 2px 7px;
+        background: #eff6ff;
+        border: 1px solid #dbeafe;
+        color: #1e3a8a;
+        border-radius: 5px;
+        font-family: monospace;
+        font-size: 11px;
+        font-weight: 600;
+        word-break: break-all;
+      }
+    </style>
+
     <div id="msgAkun" class="msg"></div>
 
     <div class="card">
@@ -70,8 +116,11 @@ export async function render(container) {
 
     <div class="card">
       <h2>Daftar Akun Tim (<span id="jumlahAkun">0</span>)</h2>
-      <div class="form-group">
-        <input type="text" id="cariAkun" placeholder="Cari nama anggota, kecamatan, atau desa..." />
+      <div class="form-grid" style="margin-bottom:10px;">
+        <input type="text" id="cariAkun" placeholder="Cari nama, email, atau desa..." />
+        <select id="filterKecAkun">
+          <option value="">Semua Wilayah / Kecamatan</option>
+        </select>
       </div>
       <div id="listAkun">Memuat daftar akun...</div>
     </div>
@@ -94,6 +143,21 @@ export async function render(container) {
   const tpsEl = document.getElementById('akunTps');
   const wrapWilayah = document.getElementById('wrapWilayah');
   const wrapTps = document.getElementById('wrapTps');
+  const filterKecEl = document.getElementById('filterKecAkun');
+
+  const labelRole = {
+    super_admin: 'Super Admin',
+    admin_desa: 'Admin Desa',
+    pengepul: 'Pengepul KTP',
+    saksi: 'Saksi TPS'
+  };
+
+  const urutanRole = {
+    super_admin: 1,
+    admin_desa: 2,
+    pengepul: 3,
+    saksi: 4
+  };
 
   function updateDropdownDesa() {
     const kecId = kecEl.value;
@@ -131,7 +195,7 @@ export async function render(container) {
     const [{ data: dKec }, { data: dDesa }, { data: dUsers, error }] = await Promise.all([
       supabase.from('kecamatan').select('id, nama_kecamatan').order('nama_kecamatan', { ascending: true }),
       supabase.from('desa').select('id, nama_desa, kecamatan_id, kecamatan(nama_kecamatan), tps(id, nomor_tps)').order('nama_desa', { ascending: true }),
-      supabase.from('users_tim').select('*, desa(nama_desa, kecamatan(nama_kecamatan)), tps(nomor_tps)').order('created_at', { ascending: false })
+      supabase.from('users_tim').select('*, desa(id, nama_desa, kecamatan_id, kecamatan(id, nama_kecamatan)), tps(nomor_tps)').order('created_at', { ascending: false })
     ]);
 
     if (error) {
@@ -147,18 +211,74 @@ export async function render(container) {
       ? semuaKecamatan.map(k => `<option value="${k.id}">${k.nama_kecamatan}</option>`).join('')
       : '<option value="">Semua Kecamatan</option>';
 
+    const filterValLama = filterKecEl.value;
+    filterKecEl.innerHTML =
+      '<option value="">Semua Wilayah / Kecamatan</option>' +
+      '<option value="super">⭐ Super Admin Pusat</option>' +
+      semuaKecamatan.map(k => `<option value="${k.id}">📍 ${k.nama_kecamatan}</option>`).join('');
+    filterKecEl.value = filterValLama;
+
     updateDropdownDesa();
     renderListAkun();
   }
 
+  function renderKartuAnggota(u) {
+    const wilayah = u.desa?.nama_desa
+      ? `${u.desa.nama_desa}${u.tps?.nomor_tps ? ' • TPS ' + u.tps.nomor_tps : ''}`
+      : 'Semua Wilayah';
+
+    return `
+      <div class="tim-item">
+        <div style="flex:1;">
+          <div>
+            <strong>${u.nama_lengkap}</strong>
+            <span class="badge ${u.aktif ? '' : 'off'}" style="margin-left:4px;">${labelRole[u.role] || u.role}</span>
+          </div>
+          <div style="font-size:12px; color:#475569; margin-top:3px;">
+            ${wilayah}${u.no_hp ? ' • ' + u.no_hp : ''}
+          </div>
+          ${u.email ? `<div class="email-pill">✉️ ${u.email}</div>` : ''}
+        </div>
+        <button class="btn-mini" data-id="${u.id}" data-aktif="${u.aktif}">
+          ${u.aktif ? 'Nonaktifkan' : 'Aktifkan'}
+        </button>
+      </div>
+    `;
+  }
+
+  function urutkanAnggota(list) {
+    return [...list].sort((a, b) => {
+      const desaA = a.desa?.nama_desa || '';
+      const desaB = b.desa?.nama_desa || '';
+      if (desaA !== desaB) return desaA.localeCompare(desaB);
+
+      const roleA = urutanRole[a.role] || 9;
+      const roleB = urutanRole[b.role] || 9;
+      if (roleA !== roleB) return roleA - roleB;
+
+      const tpsA = a.tps?.nomor_tps || '';
+      const tpsB = b.tps?.nomor_tps || '';
+      return tpsA.localeCompare(tpsB);
+    });
+  }
+
   function renderListAkun() {
-    const keyword = document.getElementById('cariAkun').value.toLowerCase();
-    const hasil = semuaAkun.filter(u =>
-      u.nama_lengkap.toLowerCase().includes(keyword) ||
-      (u.desa?.nama_desa || '').toLowerCase().includes(keyword) ||
-      (u.desa?.kecamatan?.nama_kecamatan || '').toLowerCase().includes(keyword) ||
-      u.role.toLowerCase().includes(keyword)
-    );
+    const keyword = document.getElementById('cariAkun').value.toLowerCase().trim();
+    const filterKec = filterKecEl.value;
+
+    const hasil = semuaAkun.filter(u => {
+      const cocokKata =
+        u.nama_lengkap.toLowerCase().includes(keyword) ||
+        (u.email || '').toLowerCase().includes(keyword) ||
+        (u.desa?.nama_desa || '').toLowerCase().includes(keyword) ||
+        (u.desa?.kecamatan?.nama_kecamatan || '').toLowerCase().includes(keyword) ||
+        (labelRole[u.role] || u.role).toLowerCase().includes(keyword);
+
+      if (!cocokKata) return false;
+      if (filterKec === 'super') return u.role === 'super_admin';
+      if (filterKec) return String(u.desa?.kecamatan_id || '') === filterKec;
+      return true;
+    });
 
     document.getElementById('jumlahAkun').textContent = hasil.length;
     const listEl = document.getElementById('listAkun');
@@ -168,26 +288,54 @@ export async function render(container) {
       return;
     }
 
-    listEl.innerHTML = hasil.map(u => {
-      const kecNama = u.desa?.kecamatan?.nama_kecamatan ? `${u.desa.kecamatan.nama_kecamatan} • ` : '';
-      const wilayah = u.desa?.nama_desa
-        ? `${kecNama}${u.desa.nama_desa}${u.tps?.nomor_tps ? ' - TPS ' + u.tps.nomor_tps : ''}`
-        : 'Semua Wilayah';
-      return `
-        <div class="list-item">
-          <div>
-            <strong>${u.nama_lengkap}</strong>
-            <span class="badge ${u.aktif ? '' : 'off'}">${u.role}</span>
-            <div style="font-size:12px; color:#64748b; margin-top:2px;">
-              ${wilayah} ${u.no_hp ? '• ' + u.no_hp : ''}
-            </div>
+    let html = '';
+
+    // 1. Kelompok Super Admin Pusat
+    const superAdmins = hasil.filter(u => u.role === 'super_admin');
+    if (superAdmins.length > 0) {
+      html += `
+        <div class="tim-group" style="border-color:#93c5fd; background:#f8faff;">
+          <div class="tim-group-head">
+            <span>⭐ Super Admin Pusat (${superAdmins.length})</span>
           </div>
-          <button class="btn-mini" data-id="${u.id}" data-aktif="${u.aktif}">
-            ${u.aktif ? 'Nonaktifkan' : 'Aktifkan'}
-          </button>
+          ${superAdmins.map(renderKartuAnggota).join('')}
         </div>
       `;
-    }).join('');
+    }
+
+    // 2. Kelompokkan per Kecamatan
+    semuaKecamatan.forEach(k => {
+      const anggotaKec = urutkanAnggota(
+        hasil.filter(u => u.role !== 'super_admin' && u.desa?.kecamatan_id === k.id)
+      );
+      if (anggotaKec.length > 0) {
+        html += `
+          <div class="tim-group">
+            <div class="tim-group-head">
+              <span>📍 ${k.nama_kecamatan} (${anggotaKec.length} Anggota)</span>
+            </div>
+            ${anggotaKec.map(renderKartuAnggota).join('')}
+          </div>
+        `;
+      }
+    });
+
+    // 3. Kelompok Anggota yang desanya belum terhubung ke kecamatan
+    const tanpaKec = urutkanAnggota(
+      hasil.filter(u => u.role !== 'super_admin' && !u.desa?.kecamatan_id)
+    );
+    if (tanpaKec.length > 0) {
+      html += `
+        <div class="tim-group" style="border-color:#fcd34d;">
+          <div class="tim-group-head" style="color:#d97706;">
+            <span>⚠️ Wilayah Belum Masuk Kecamatan (${tanpaKec.length})</span>
+          </div>
+          ${tanpaKec.map(renderKartuAnggota).join('')}
+        </div>
+      `;
+    }
+
+    listEl.innerHTML = html;
 
     listEl.querySelectorAll('.btn-mini').forEach(btn => {
       btn.addEventListener('click', async () => {
@@ -200,6 +348,7 @@ export async function render(container) {
   }
 
   document.getElementById('cariAkun').addEventListener('input', renderListAkun);
+  filterKecEl.addEventListener('change', renderListAkun);
 
   document.getElementById('formAkun').addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -212,7 +361,7 @@ export async function render(container) {
     const role = roleEl.value;
     const desa_id = role === 'super_admin' ? null : (parseInt(desaEl.value, 10) || null);
     const tps_id = role === 'saksi' ? (parseInt(tpsEl.value, 10) || null) : null;
-    const email = document.getElementById('akunEmail').value.trim();
+    const email = document.getElementById('akunEmail').value.trim().toLowerCase();
     const password = document.getElementById('akunPass').value.trim();
 
     try {
@@ -230,6 +379,7 @@ export async function render(container) {
       const { error: dbErr } = await supabase.from('users_tim').insert({
         id: authData.user.id,
         nama_lengkap,
+        email,
         no_hp,
         role,
         desa_id,
