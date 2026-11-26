@@ -1,7 +1,6 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
 import { supabase } from '../config.js';
 
-// Client terpisah agar saat Super Admin membuat akun baru, sesi Super Admin tidak ikut keluar
 const authCreator = createClient(supabase.supabaseUrl, supabase.supabaseKey, {
   auth: {
     persistSession: false,
@@ -20,7 +19,7 @@ export async function render(container) {
         <div class="form-grid">
           <div class="form-group">
             <label>Nama Lengkap Anggota</label>
-            <input type="text" id="akunNama" placeholder="Contoh: Budi Santoso" required />
+            <input type="text" id="akunNama" placeholder="Contoh: Admin Kampung Padang" required />
           </div>
           <div class="form-group">
             <label>No. HP / WhatsApp</label>
@@ -28,17 +27,22 @@ export async function render(container) {
           </div>
         </div>
 
-        <div class="form-grid">
+        <div class="form-group">
+          <label>Jabatan / Role</label>
+          <select id="akunRole" required>
+            <option value="admin_desa">Admin Desa (Mengurus 1 Desa)</option>
+            <option value="pengepul">Pengepul KTP</option>
+            <option value="saksi">Saksi TPS</option>
+            <option value="super_admin">Super Admin (Semua Wilayah)</option>
+          </select>
+        </div>
+
+        <div class="form-grid" id="wrapWilayah">
           <div class="form-group">
-            <label>Jabatan / Role</label>
-            <select id="akunRole" required>
-              <option value="pengepul">Pengepul KTP</option>
-              <option value="saksi">Saksi TPS</option>
-              <option value="admin_desa">Admin Desa</option>
-              <option value="super_admin">Super Admin</option>
-            </select>
+            <label>Pilih Kecamatan</label>
+            <select id="akunKecamatan"></select>
           </div>
-          <div class="form-group" id="wrapDesa">
+          <div class="form-group">
             <label>Tugas di Desa</label>
             <select id="akunDesa"></select>
           </div>
@@ -52,11 +56,11 @@ export async function render(container) {
         <div class="form-grid">
           <div class="form-group">
             <label>Email Login</label>
-            <input type="email" id="akunEmail" placeholder="contoh: budi01@pemilu.id" required />
+            <input type="email" id="akunEmail" placeholder="contoh: kampungpadang@pemilu.id" required />
           </div>
           <div class="form-group">
             <label>Kata Sandi (Min. 6 karakter)</label>
-            <input type="text" id="akunPass" placeholder="Contoh: tim2026" minlength="6" required />
+            <input type="text" id="akunPass" placeholder="Contoh: desa2026" minlength="6" required />
           </div>
         </div>
 
@@ -67,7 +71,7 @@ export async function render(container) {
     <div class="card">
       <h2>Daftar Akun Tim (<span id="jumlahAkun">0</span>)</h2>
       <div class="form-group">
-        <input type="text" id="cariAkun" placeholder="Cari nama anggota atau desa..." />
+        <input type="text" id="cariAkun" placeholder="Cari nama anggota, kecamatan, atau desa..." />
       </div>
       <div id="listAkun">Memuat daftar akun...</div>
     </div>
@@ -77,16 +81,32 @@ export async function render(container) {
   const showMsg = (text, isErr = false) => {
     msgEl.textContent = text;
     msgEl.className = `msg ${isErr ? 'err' : 'ok'}`;
+    msgEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   };
 
+  let semuaKecamatan = [];
   let semuaDesa = [];
   let semuaAkun = [];
 
   const roleEl = document.getElementById('akunRole');
+  const kecEl = document.getElementById('akunKecamatan');
   const desaEl = document.getElementById('akunDesa');
   const tpsEl = document.getElementById('akunTps');
-  const wrapDesa = document.getElementById('wrapDesa');
+  const wrapWilayah = document.getElementById('wrapWilayah');
   const wrapTps = document.getElementById('wrapTps');
+
+  function updateDropdownDesa() {
+    const kecId = kecEl.value;
+    const daftarDesa = kecId
+      ? semuaDesa.filter(d => String(d.kecamatan_id) === kecId)
+      : semuaDesa;
+
+    desaEl.innerHTML = daftarDesa.length > 0
+      ? daftarDesa.map(d => `<option value="${d.id}">${d.nama_desa}</option>`).join('')
+      : '<option value="">-- Belum ada desa di kecamatan ini --</option>';
+
+    updateDropdownTps();
+  }
 
   function updateDropdownTps() {
     const desaId = parseInt(desaEl.value, 10);
@@ -99,36 +119,35 @@ export async function render(container) {
 
   roleEl.addEventListener('change', () => {
     const r = roleEl.value;
-    wrapDesa.style.display = r === 'super_admin' ? 'none' : 'block';
+    wrapWilayah.style.display = r === 'super_admin' ? 'none' : 'grid';
     wrapTps.style.display = r === 'saksi' ? 'block' : 'none';
     if (r === 'saksi') updateDropdownTps();
   });
 
+  kecEl.addEventListener('change', updateDropdownDesa);
   desaEl.addEventListener('change', updateDropdownTps);
 
   async function muatData() {
-    const { data: dDesa } = await supabase
-      .from('desa')
-      .select('id, nama_desa, tps(id, nomor_tps)')
-      .order('nama_desa', { ascending: true });
-    semuaDesa = dDesa || [];
-
-    desaEl.innerHTML = semuaDesa.length > 0
-      ? semuaDesa.map(d => `<option value="${d.id}">${d.nama_desa}</option>`).join('')
-      : '<option value="">-- Tambahkan desa dulu --</option>';
-    updateDropdownTps();
-
-    const { data: dUsers, error } = await supabase
-      .from('users_tim')
-      .select('*, desa(nama_desa), tps(nomor_tps)')
-      .order('created_at', { ascending: false });
+    const [{ data: dKec }, { data: dDesa }, { data: dUsers, error }] = await Promise.all([
+      supabase.from('kecamatan').select('id, nama_kecamatan').order('nama_kecamatan', { ascending: true }),
+      supabase.from('desa').select('id, nama_desa, kecamatan_id, kecamatan(nama_kecamatan), tps(id, nomor_tps)').order('nama_desa', { ascending: true }),
+      supabase.from('users_tim').select('*, desa(nama_desa, kecamatan(nama_kecamatan)), tps(nomor_tps)').order('created_at', { ascending: false })
+    ]);
 
     if (error) {
       showMsg(`Gagal memuat daftar akun: ${error.message}`, true);
       return;
     }
 
+    semuaKecamatan = dKec || [];
+    semuaDesa = dDesa || [];
     semuaAkun = dUsers || [];
+
+    kecEl.innerHTML = semuaKecamatan.length > 0
+      ? semuaKecamatan.map(k => `<option value="${k.id}">${k.nama_kecamatan}</option>`).join('')
+      : '<option value="">Semua Kecamatan</option>';
+
+    updateDropdownDesa();
     renderListAkun();
   }
 
@@ -137,6 +156,7 @@ export async function render(container) {
     const hasil = semuaAkun.filter(u =>
       u.nama_lengkap.toLowerCase().includes(keyword) ||
       (u.desa?.nama_desa || '').toLowerCase().includes(keyword) ||
+      (u.desa?.kecamatan?.nama_kecamatan || '').toLowerCase().includes(keyword) ||
       u.role.toLowerCase().includes(keyword)
     );
 
@@ -149,8 +169,9 @@ export async function render(container) {
     }
 
     listEl.innerHTML = hasil.map(u => {
+      const kecNama = u.desa?.kecamatan?.nama_kecamatan ? `${u.desa.kecamatan.nama_kecamatan} • ` : '';
       const wilayah = u.desa?.nama_desa
-        ? `${u.desa.nama_desa}${u.tps?.nomor_tps ? ' - TPS ' + u.tps.nomor_tps : ''}`
+        ? `${kecNama}${u.desa.nama_desa}${u.tps?.nomor_tps ? ' - TPS ' + u.tps.nomor_tps : ''}`
         : 'Semua Wilayah';
       return `
         <div class="list-item">
@@ -202,12 +223,10 @@ export async function render(container) {
         throw new Error('Pilih TPS untuk saksi terlebih dahulu.');
       }
 
-      // 1. Buat user di Supabase Auth
       const { data: authData, error: authErr } = await authCreator.auth.signUp({ email, password });
       if (authErr) throw authErr;
       if (!authData.user) throw new Error('Gagal membuat user baru.');
 
-      // 2. Simpan profil peran & wilayah ke users_tim
       const { error: dbErr } = await supabase.from('users_tim').insert({
         id: authData.user.id,
         nama_lengkap,
