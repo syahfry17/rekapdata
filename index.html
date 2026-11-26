@@ -2,569 +2,411 @@
 <html lang="id">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-  <meta name="theme-color" content="#0f4c81" />
-  <link rel="manifest" href="./manifest.json" />
-  <title>Hasil Rekapitulasi Pemilu — SIPEMILU</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pantau Tim — Rekapitulasi Real-Time</title>
   <style>
     :root {
-      --primary: #0f4c81; --primary-dark: #0f2537;
-      --success: #15803d; --warning: #b45309; --danger: #b91c1c;
-      --bg: #f1f5f9; --card: #ffffff; --text: #0f172a; --muted: #64748b; --border: #cbd5e1;
-      --amber: #f59e0b;
+      --bg: #f1f5f9;
+      --card: #ffffff;
+      --text: #0f172a;
+      --muted: #64748b;
+      --border: #e2e8f0;
+      --primary: #1e3a8a;
+      --primary-soft: #dbeafe;
+      --green: #059669;
+      --green-soft: #d1fae5;
+      --amber: #d97706;
     }
-    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
     body {
-      margin: 0; overflow-x: hidden;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      background: var(--bg); color: var(--text);
-      min-height: 100vh; display: flex; flex-direction: column;
-      -webkit-font-smoothing: antialiased;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+      padding-bottom: 32px;
     }
-    .hide-mobile { display: inline; }
-    @media (max-width: 480px) { .hide-mobile { display: none; } }
 
     /* Header */
-    .header {
-      background: linear-gradient(135deg, #0f2537 0%, #173654 50%, #1e3a8a 100%);
-      color: #fff; padding: 14px 16px;
-      box-shadow: 0 4px 16px rgba(0,0,0,0.2);
-      border-bottom: 4px solid var(--amber);
-      position: sticky; top: 0; z-index: 100;
-    }
-    .header-inner {
-      max-width: 1100px; margin: 0 auto;
-      display: flex; align-items: center; justify-content: space-between; gap: 12px;
-    }
-    .brand { display: flex; align-items: center; gap: 10px; }
-    .brand-logo {
-      width: 42px; height: 42px; border-radius: 12px;
-      background: var(--amber); color: var(--primary-dark);
-      display: flex; align-items: center; justify-content: center;
-      font-size: 22px; font-weight: 900;
-      box-shadow: 0 4px 12px rgba(245,158,11,0.4); flex-shrink: 0;
-    }
-    .brand-text h1 { margin: 0; font-size: 17px; font-weight: 800; letter-spacing: -0.3px; line-height: 1.1; }
-    .brand-text p { margin: 2px 0 0; font-size: 11px; color: #bfdbfe; font-weight: 500; }
-    .header-actions { display: flex; gap: 8px; align-items: center; }
-    .btn-icon {
-      background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.2);
-      color: #fff; padding: 9px 12px; border-radius: 10px;
-      font-size: 12px; font-weight: 600; cursor: pointer;
-      display: inline-flex; align-items: center; gap: 6px;
-      transition: all 0.2s; text-decoration: none;
-    }
-    .btn-icon:hover { background: rgba(255,255,255,0.22); }
-    .btn-icon:active { transform: scale(0.97); }
-
-    /* Hero */
-    .hero {
-      background: linear-gradient(135deg, #0f2537 0%, #173654 60%, #1e3a8a 100%);
-      color: #fff; padding: 32px 16px 60px;
-      text-align: center; position: relative; overflow: hidden;
-    }
-    .hero::before {
-      content: ''; position: absolute; top: -50%; right: -20%;
-      width: 500px; height: 500px; border-radius: 50%;
-      background: radial-gradient(circle, rgba(245,158,11,0.15) 0%, transparent 70%);
-    }
-    .hero-inner { max-width: 1100px; margin: 0 auto; position: relative; z-index: 2; }
-    .hero-label {
-      display: inline-block; padding: 5px 14px; border-radius: 999px;
-      background: rgba(245,158,11,0.2); border: 1px solid rgba(245,158,11,0.5);
-      color: var(--amber); font-size: 11px; font-weight: 800;
-      letter-spacing: 1px; text-transform: uppercase; margin-bottom: 12px;
-    }
-    .hero h2 { margin: 0 0 8px; font-size: clamp(24px, 5vw, 38px); font-weight: 900; letter-spacing: -0.5px; line-height: 1.1; }
-    .hero p { margin: 0; color: #bfdbfe; font-size: 13px; }
-    .live-badge {
-      display: inline-flex; align-items: center; gap: 6px;
-      font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 999px;
-      background: rgba(16,185,129,0.15); color: #6ee7b7;
-      border: 1px solid rgba(16,185,129,0.35); margin-top: 14px;
-    }
-    .live-dot { width: 7px; height: 7px; border-radius: 50%; background: #10b981; animation: pulse 1.5s infinite; }
-    @keyframes pulse {
-      0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(16,185,129,0.7); }
-      50% { opacity: 0.6; box-shadow: 0 0 0 6px rgba(16,185,129,0); }
+    .topbar {
+      background: var(--primary);
+      color: #fff;
+      padding: 14px 16px;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      box-shadow: 0 2px 8px rgba(15, 23, 42, 0.12);
     }
 
-    /* Main */
-    .main {
-      flex: 1; max-width: 1100px; width: 100%;
-      margin: -40px auto 0; padding: 0 16px 32px;
-      position: relative; z-index: 3;
+    .topbar-inner {
+      max-width: 720px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
     }
 
-    /* Stat grid */
-    .stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 20px; }
-    @media (max-width: 640px) { .stat-grid { grid-template-columns: 1fr; gap: 10px; } }
-    .stat-card {
-      background: var(--card); border-radius: 16px; padding: 18px 16px;
-      box-shadow: 0 4px 16px rgba(15,23,42,0.08);
-      border: 1px solid #e2e8f0; display: flex; align-items: center; gap: 12px;
+    .brand h1 {
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: 0.3px;
     }
-    .stat-icon {
-      width: 44px; height: 44px; border-radius: 12px;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 20px; flex-shrink: 0;
-    }
-    .stat-icon.blue { background: #dbeafe; }
-    .stat-icon.green { background: #dcfce7; }
-    .stat-icon.amber { background: #fef3c7; }
-    .stat-label { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin: 0 0 2px; }
-    .stat-value { font-size: 22px; font-weight: 900; margin: 0; letter-spacing: -0.5px; }
 
-    /* Section */
-    .section {
-      background: var(--card); border-radius: 18px; padding: 20px 18px;
-      box-shadow: 0 4px 16px rgba(15,23,42,0.06);
-      border: 1px solid #e2e8f0; margin-bottom: 20px;
+    .status-live {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: #cbd5e1;
     }
-    .section-title {
-      display: flex; align-items: center; justify-content: space-between;
-      margin-bottom: 16px; padding-bottom: 12px; border-bottom: 2px solid #f1f5f9;
-    }
-    .section-title h3 {
-      margin: 0; font-size: 16px; font-weight: 800; color: var(--primary-dark);
-      display: flex; align-items: center; gap: 8px;
-    }
-    .section-title .sub { font-size: 11px; color: var(--muted); font-weight: 600; }
 
-    /* Vote cards */
-    .vote-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
-    @media (max-width: 768px) { .vote-grid { grid-template-columns: 1fr; } }
-    .vote-card {
-      padding: 18px 16px; border-radius: 14px; border: 2px solid #e2e8f0;
-      background: #f8fafc; position: relative; overflow: hidden; transition: all 0.3s;
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #34d399;
+      display: inline-block;
     }
-    .vote-card.p1 { border-color: #1e3a8a; background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); }
-    .vote-card.p2 { border-color: #b45309; background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%); }
-    .vote-card.p3 { border-color: #15803d; background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%); }
-    .vote-card.leader::after {
-      content: '🏆'; position: absolute; top: 12px; right: 12px; font-size: 18px;
-    }
-    .vote-num { font-size: 11px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
-    .vote-card.p1 .vote-num { color: #1e3a8a; }
-    .vote-card.p2 .vote-num { color: #b45309; }
-    .vote-card.p3 .vote-num { color: #15803d; }
-    .vote-name { font-size: 14px; font-weight: 800; margin: 0 0 12px; color: var(--text); line-height: 1.3; min-height: 36px; }
-    .vote-count { font-size: 28px; font-weight: 900; letter-spacing: -1px; line-height: 1; margin: 0; }
-    .vote-card.p1 .vote-count { color: #1e3a8a; }
-    .vote-card.p2 .vote-count { color: #b45309; }
-    .vote-card.p3 .vote-count { color: #15803d; }
-    .vote-pct { font-size: 13px; font-weight: 700; color: var(--muted); margin: 4px 0 10px; }
-    .progress-track { height: 8px; background: rgba(255,255,255,0.6); border-radius: 999px; overflow: hidden; }
-    .progress-fill { height: 100%; border-radius: 999px; transition: width 1s ease-out; }
-    .p1 .progress-fill { background: linear-gradient(90deg, #1e3a8a, #3b82f6); }
-    .p2 .progress-fill { background: linear-gradient(90deg, #b45309, #f59e0b); }
-    .p3 .progress-fill { background: linear-gradient(90deg, #15803d, #22c55e); }
 
-    /* Kecamatan breakdown */
-    .kec-list { display: flex; flex-direction: column; gap: 10px; }
-    .kec-item { border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; background: #f8fafc; }
-    .kec-header {
-      padding: 14px 16px; display: flex; align-items: center; justify-content: space-between;
-      cursor: pointer; user-select: none; transition: background 0.2s;
+    .dot.offline {
+      background: #f87171;
     }
-    .kec-header:hover { background: #eff6ff; }
-    .kec-info h4 { margin: 0 0 2px; font-size: 14px; font-weight: 800; color: var(--text); }
-    .kec-info p { margin: 0; font-size: 11px; color: var(--muted); font-weight: 600; }
-    .kec-totals { display: flex; gap: 14px; align-items: center; font-size: 12px; }
-    .kec-total-item { text-align: right; }
-    .kec-total-item span:first-child { display: block; font-size: 10px; color: var(--muted); font-weight: 700; text-transform: uppercase; }
-    .kec-total-item span:last-child { font-weight: 800; font-size: 13px; }
-    .kec-chevron { color: var(--muted); transition: transform 0.3s; font-size: 12px; margin-left: 8px; }
-    .kec-item.open .kec-chevron { transform: rotate(180deg); }
-    .kec-body { max-height: 0; overflow: hidden; transition: max-height 0.4s ease; background: #fff; border-top: 1px solid #e2e8f0; }
-    .kec-item.open .kec-body { max-height: 400px; }
-    .kec-body-inner { padding: 14px 16px; }
-    .kec-bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
-    .kec-bar-row:last-child { margin-bottom: 0; }
-    .kec-bar-label { font-size: 11px; font-weight: 700; width: 80px; flex-shrink: 0; color: var(--muted); }
-    .kec-bar-track { flex: 1; height: 6px; background: #f1f5f9; border-radius: 999px; overflow: hidden; }
-    .kec-bar-fill { height: 100%; border-radius: 999px; transition: width 0.8s; }
-    .kec-bar-fill.p1 { background: #1e3a8a; }
-    .kec-bar-fill.p2 { background: #f59e0b; }
-    .kec-bar-fill.p3 { background: #15803d; }
-    .kec-bar-val { font-size: 11px; font-weight: 800; width: 60px; text-align: right; flex-shrink: 0; }
 
-    /* States */
-    .state-box {
-      text-align: center; padding: 40px 20px; background: var(--card);
-      border-radius: 18px; box-shadow: 0 4px 16px rgba(15,23,42,0.06);
+    .btn-login {
+      background: rgba(255, 255, 255, 0.15);
+      color: #fff;
+      text-decoration: none;
+      font-size: 13px;
+      font-weight: 600;
+      padding: 8px 14px;
+      border-radius: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      white-space: nowrap;
     }
-    .state-box .emoji { font-size: 48px; margin-bottom: 12px; }
-    .state-box h3 { margin: 0 0 6px; font-size: 18px; }
-    .state-box p { margin: 0 0 16px; color: var(--muted); font-size: 13px; line-height: 1.5; }
-    .btn {
-      background: var(--primary); color: #fff; border: none;
-      padding: 10px 20px; border-radius: 10px;
-      font-size: 13px; font-weight: 700; cursor: pointer;
-      transition: all 0.2s; display: inline-flex; align-items: center; gap: 6px;
-    }
-    .btn:hover { background: #0c3e6a; }
-    .btn:active { transform: scale(0.98); }
-    .btn.amber { background: var(--amber); color: var(--primary-dark); }
-    .btn.amber:hover { background: #d97706; }
 
-    /* Skeleton */
-    .skeleton {
-      background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
-      background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: 8px;
+    /* Container */
+    .container {
+      max-width: 720px;
+      margin: 16px auto 0;
+      padding: 0 14px;
     }
-    @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
 
-    /* Footer */
-    .footer {
-      background: var(--primary-dark); color: #94a3b8;
-      text-align: center; padding: 18px 16px;
-      font-size: 11px; border-top: 3px solid var(--amber);
+    /* Alert Error */
+    .alert {
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      color: #991b1b;
+      padding: 12px 14px;
+      border-radius: 10px;
+      font-size: 13px;
+      margin-bottom: 14px;
+      display: none;
     }
-    .footer strong { color: #fff; }
-    .footer p { margin: 3px 0; }
 
-    /* Modal URL */
-    .modal-backdrop {
-      position: fixed; inset: 0; background: rgba(15,23,42,0.7);
-      z-index: 200; display: none; align-items: center; justify-content: center; padding: 16px;
+    /* Ringkasan Utama */
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 16px;
     }
-    .modal-backdrop.show { display: flex; }
-    .modal-box {
-      background: #fff; border-radius: 18px; max-width: 480px; width: 100%;
-      overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,0.4);
-    }
-    .modal-head { background: linear-gradient(135deg, #0f2537 0%, #1e3a8a 100%); color: #fff; padding: 16px 20px; font-weight: 800; font-size: 15px; }
-    .modal-body { padding: 20px; }
-    .modal-body label { display: block; font-size: 11px; font-weight: 800; color: var(--text); text-transform: uppercase; margin-bottom: 6px; }
-    .modal-body input {
-      width: 100%; padding: 12px 14px; border: 1px solid var(--border);
-      border-radius: 10px; font-size: 13px; font-family: monospace; outline: none; transition: border 0.2s;
-    }
-    .modal-body input:focus { border-color: var(--primary); }
-    .modal-body p.hint { font-size: 11px; color: var(--muted); margin: 8px 0 16px; line-height: 1.5; }
-    .modal-actions { display: flex; gap: 8px; justify-content: flex-end; }
 
-    @keyframes fadeInUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
-    .fade-in { animation: fadeInUp 0.4s ease-out; }
+    @media (max-width: 480px) {
+      .grid-2 {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 16px;
+      box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+    }
+
+    .card-label {
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+
+    .card-value {
+      font-size: 28px;
+      font-weight: 800;
+      font-variant-numeric: tabular-nums;
+      color: var(--text);
+    }
+
+    .card-sub {
+      font-size: 13px;
+      color: var(--muted);
+      margin-top: 4px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .progress-bg {
+      width: 100%;
+      height: 8px;
+      background: #e2e8f0;
+      border-radius: 99px;
+      overflow: hidden;
+      margin-top: 10px;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: var(--green);
+      border-radius: 99px;
+      width: 0%;
+      transition: width 0.4s ease;
+    }
+
+    .progress-fill.blue {
+      background: var(--primary);
+    }
+
+    /* Section Header */
+    .section-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin: 20px 0 10px;
+    }
+
+    .section-head h2 {
+      font-size: 15px;
+      font-weight: 700;
+    }
+
+    .btn-refresh {
+      background: var(--card);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-size: 12px;
+      font-weight: 600;
+      padding: 6px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+
+    /* Daftar Desa */
+    .desa-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .desa-item {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px;
+    }
+
+    .desa-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .desa-name {
+      font-weight: 700;
+      font-size: 15px;
+    }
+
+    .badge {
+      font-size: 12px;
+      font-weight: 600;
+      padding: 3px 8px;
+      border-radius: 6px;
+      background: var(--primary-soft);
+      color: var(--primary);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .desa-stats {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      font-size: 13px;
+      color: var(--muted);
+      background: #f8fafc;
+      padding: 8px 10px;
+      border-radius: 8px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .desa-stats strong {
+      color: var(--text);
+    }
+
+    .empty-box {
+      background: var(--card);
+      border: 1px dashed #cbd5e1;
+      border-radius: 12px;
+      padding: 28px 16px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .footer-info {
+      text-align: center;
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 20px;
+    }
   </style>
 </head>
 <body>
 
-<header class="header">
-  <div class="header-inner">
-    <div class="brand">
-      <div class="brand-logo">S</div>
-      <div class="brand-text">
-        <h1>SIPEMILU</h1>
-        <p id="header-subtitle">Hasil Rekapitulasi Pemilu</p>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand">
+        <h1>PANTAU TIM</h1>
+        <div class="status-live">
+          <span class="dot" id="statusDot"></span>
+          <span id="statusText">Menghubungkan...</span>
+        </div>
       </div>
+      <a href="login.html" class="btn-login">Login Tim →</a>
     </div>
-    <div class="header-actions">
-      <button class="btn-icon" onclick="refreshData()" title="Muat ulang">
-        <span>⟳</span><span class="hide-mobile">Refresh</span>
-      </button>
-      <a href="dashboard.html" class="btn-icon" title="Admin Dashboard">
-        <span>🔒</span><span class="hide-mobile">Admin</span>
-      </a>
-    </div>
-  </div>
-</header>
+  </header>
 
-<section class="hero">
-  <div class="hero-inner">
-    <span class="hero-label">📊 Hasil Sementara</span>
-    <h2 id="hero-title">Memuat data...</h2>
-    <p id="hero-subtitle">Rekapitulasi suara dari seluruh TPS</p>
-    <div id="live-badge-wrap" style="display:none;">
-      <span class="live-badge">
-        <span class="live-dot"></span>
-        <span id="live-text">Live</span>
-      </span>
-    </div>
-  </div>
-</section>
+  <main class="container">
+    <div class="alert" id="errorBox"></div>
 
-<main class="main" id="main-content"></main>
-
-<footer class="footer">
-  <p><strong>SIPEMILU v3.2</strong> • Sistem Rekapitulasi Pemilu</p>
-  <p id="footer-updated">Belum ada data</p>
-</footer>
-
-<div class="modal-backdrop" id="modal-url">
-  <div class="modal-box">
-    <div class="modal-head">⚙️ Konfigurasi Server</div>
-    <div class="modal-body">
-      <label for="input-url">URL Web App Google Apps Script</label>
-      <input type="url" id="input-url" placeholder="https://script.google.com/macros/s/.../exec" />
-      <p class="hint">Masukkan URL server yang sama dengan dashboard admin. Data statistik akan diambil dari endpoint publik.</p>
-      <div class="modal-actions">
-        <button class="btn amber" onclick="saveUrl()">Simpan & Muat Data</button>
+    <!-- Kartu Ringkasan -->
+    <section class="grid-2">
+      <div class="card">
+        <div class="card-label">KTP Terkumpul</div>
+        <div class="card-value" id="totalKtp">0</div>
+        <div class="card-sub" id="subKtp">Target: 0 KTP (0%)</div>
+        <div class="progress-bg">
+          <div class="progress-fill" id="barKtp"></div>
+        </div>
       </div>
+
+      <div class="card">
+        <div class="card-label">Perolehan Suara</div>
+        <div class="card-value" id="totalSuara">0</div>
+        <div class="card-sub" id="subSuara">TPS Masuk: 0 / 0 TPS</div>
+        <div class="progress-bg">
+          <div class="progress-fill blue" id="barTps"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Rincian Per Desa -->
+    <div class="section-head">
+      <h2>Rekapitulasi Per Desa</h2>
+      <button class="btn-refresh" id="btnRefresh">↻ Perbarui</button>
     </div>
-  </div>
-</div>
 
-<script>
-  const GSHEET_URL_KEY = 'sipemilu_gsheet_webapp_url_v1';
-  let gsheetUrl = localStorage.getItem(GSHEET_URL_KEY) || '';
-  let appData = null;
-  let refreshTimer = null;
-  let lastUpdate = null;
+    <div class="desa-list" id="desaList">
+      <div class="empty-box">Memuat data dari server...</div>
+    </div>
 
-  const $ = id => document.getElementById(id);
-  const fmt = n => (n || 0).toLocaleString('id-ID');
-  const esc = s => s == null ? '' : String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    <div class="footer-info" id="lastUpdate">Belum diperbarui</div>
+  </main>
 
-  function showUrlModal() { $('input-url').value = gsheetUrl || ''; $('modal-url').classList.add('show'); }
-  function saveUrl() {
-    const v = $('input-url').value.trim();
-    if (!v) return;
-    gsheetUrl = v; localStorage.setItem(GSHEET_URL_KEY, v);
-    $('modal-url').classList.remove('show'); loadData();
-  }
+  <script type="module">
+    import { supabase } from './js/config.js';
 
-  async function fetchData() {
-    if (!gsheetUrl) return { needsSetup: true };
-    try {
-      const res = await fetch(gsheetUrl, {
-        method: 'POST', redirect: 'follow',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ action: 'publicStats' })
-      });
-      const r = await res.json();
-      return r.status === 'success' ? r : { error: r.message || 'Server menolak permintaan' };
-    } catch (e) { return { error: e.message || 'Gagal terhubung ke server' }; }
-  }
+    const elTotalKtp = document.getElementById('totalKtp');
+    const elSubKtp = document.getElementById('subKtp');
+    const elBarKtp = document.getElementById('barKtp');
+    const elTotalSuara = document.getElementById('totalSuara');
+    const elSubSuara = document.getElementById('subSuara');
+    const elBarTps = document.getElementById('barTps');
+    const elDesaList = document.getElementById('desaList');
+    const elError = document.getElementById('errorBox');
+    const elDot = document.getElementById('statusDot');
+    const elStatus = document.getElementById('statusText');
+    const elLastUpdate = document.getElementById('lastUpdate');
 
-  async function loadData() {
-    renderLoading();
-    const r = await fetchData();
-    if (r.needsSetup) return renderSetupNeeded();
-    if (r.error) return renderError(r.error);
+    const formatAngka = (num) => Number(num || 0).toLocaleString('id-ID');
 
-    appData = {
-      config: r.config || { kabupatenName: 'Kabupaten', paslon1: 'Paslon 01', paslon2: 'Paslon 02', paslon3: 'Paslon 03' },
-      data: Array.isArray(r.data) ? r.data : []
-    };
-    lastUpdate = new Date();
-    renderDashboard();
-    startAutoRefresh();
-  }
+    async function muatRingkasan() {
+      try {
+        const { data, error } = await supabase.rpc('get_ringkasan_calon');
+        if (error) throw error;
 
-  function refreshData() { if (!gsheetUrl) return showUrlModal(); loadData(); }
+        elError.style.display = 'none';
+        elDot.classList.remove('offline');
+        elStatus.textContent = 'Live • Terhubung';
 
-  function startAutoRefresh() {
-    if (refreshTimer) clearInterval(refreshTimer);
-    refreshTimer = setInterval(async () => {
-      const r = await fetchData();
-      if (r && !r.error && !r.needsSetup) {
-        appData = { config: r.config || appData.config, data: Array.isArray(r.data) ? r.data : [] };
-        lastUpdate = new Date();
-        renderDashboard();
+        // 1. Update KTP
+        const totalKtp = data.total_ktp || 0;
+        const targetKtp = data.target_ktp || 0;
+        const persenKtp = targetKtp > 0 ? Math.min(100, Math.round((totalKtp / targetKtp) * 100)) : 0;
+
+        elTotalKtp.textContent = formatAngka(totalKtp);
+        elSubKtp.textContent = `Target: ${formatAngka(targetKtp)} KTP (${persenKtp}%)`;
+        elBarKtp.style.width = `${persenKtp}%`;
+
+        // 2. Update Suara & TPS
+        const suaraCalon = data.total_suara_calon || 0;
+        const tpsMasuk = data.tps_masuk || 0;
+        const totalTps = data.total_tps || 0;
+        const persenTps = totalTps > 0 ? Math.min(100, Math.round((tpsMasuk / totalTps) * 100)) : 0;
+
+        elTotalSuara.textContent = formatAngka(suaraCalon);
+        elSubSuara.textContent = `TPS Masuk: ${formatAngka(tpsMasuk)} / ${formatAngka(totalTps)} TPS (${persenTps}%)`;
+        elBarTps.style.width = `${persenTps}%`;
+
+        // 3. Render Per Desa
+        const daftarDesa = data.per_desa || [];
+        if (daftarDesa.length === 0) {
+          elDesaList.innerHTML = `
+            <div class="empty-box">
+              Belum ada data desa yang dimasukkan.<br>
+              Silakan tambahkan daftar desa melalui menu Admin nanti.
+            </div>`;
+        } else {
+          elDesaList.innerHTML = daftarDesa.map((d) => {
+            const pDesa = d.target_ktp > 0 ? Math.round((d.jumlah_ktp / d.target_ktp) * 100) : 0;
+            return `
+              <div class="desa-item">
+                <div class="desa-top">
+                  <span class="desa-name">${d.nama_desa}</span>
+                  <span class="badge">${pDesa}% Target KTP</span>
+                </div>
+                <div class="desa-stats">
+                  <div>KTP: <strong>${formatAngka(d.jumlah_ktp)}</strong> / ${formatAngka(d.target_ktp)}</div>
+                  <div>Suara: <strong>${formatAngka(d.suara_calon)}</strong> (${d.tps_masuk}/${d.total_tps} TPS)</div>
+                </div>
+              </div>
+            `;
+          }).join('');
+        }
+
+        const jam = new Date().toLocaleTimeString('id-ID');
+        elLastUpdate.textContent = `Terakhir diperbarui: ${jam} WIB (otomatis tiap 10 detik)`;
+      } catch (err) {
+        elDot.classList.add('offline');
+        elStatus.textContent = 'Terputus';
+        elError.style.display = 'block';
+        elError.textContent = `Gagal terhubung ke database: ${err.message}. Pastikan js/config.js sudah diisi dengan benar.`;
       }
-    }, 30000);
-  }
-
-  function computeStats(data) {
-    const s = {
-      totalS1: 0, totalS2: 0, totalS3: 0, totalTidakSah: 0,
-      totalPemilih: 0, totalTps: 0, totalTpsFinal: 0, totalSuaraEntries: 0, perKecamatan: []
-    };
-    (data || []).forEach(kec => {
-      const k = { id: kec.id, nama: kec.nama, kode: kec.kode, s1: 0, s2: 0, s3: 0, tidakSah: 0, pemilih: 0, tps: 0, tpsFinal: 0, suaraEntries: 0 };
-      (kec.desaList || []).forEach(desa => {
-        k.pemilih += (desa.pemilihList || []).length;
-        k.tps += (desa.tpsList || []).length;
-        (desa.suaraList || []).forEach(x => {
-          k.s1 += x.suara1 || 0; k.s2 += x.suara2 || 0; k.s3 += x.suara3 || 0;
-          k.tidakSah += x.tidakSah || 0; k.suaraEntries++;
-          if (x.status === 'Final') k.tpsFinal++;
-        });
-      });
-      s.totalS1 += k.s1; s.totalS2 += k.s2; s.totalS3 += k.s3; s.totalTidakSah += k.tidakSah;
-      s.totalPemilih += k.pemilih; s.totalTps += k.tps; s.totalTpsFinal += k.tpsFinal; s.totalSuaraEntries += k.suaraEntries;
-      s.perKecamatan.push(k);
-    });
-    s.totalSah = s.totalS1 + s.totalS2 + s.totalS3;
-    return s;
-  }
-
-  function renderLoading() {
-    $('main-content').innerHTML = `
-      <div class="stat-grid">
-        ${[1,2,3].map(() => `<div class="stat-card"><div class="skeleton" style="width:44px;height:44px;border-radius:12px;"></div><div style="flex:1;"><div class="skeleton" style="height:11px;width:80px;margin-bottom:6px;"></div><div class="skeleton" style="height:22px;width:100px;"></div></div></div>`).join('')}
-      </div>
-      <div class="section"><div class="skeleton" style="height:200px;"></div></div>`;
-    $('hero-title').textContent = 'Memuat data...';
-    $('live-badge-wrap').style.display = 'none';
-  }
-
-  function renderSetupNeeded() {
-    $('main-content').innerHTML = `
-      <div class="state-box fade-in">
-        <div class="emoji">⚙️</div>
-        <h3>Konfigurasi Server Diperlukan</h3>
-        <p>Hubungkan halaman ini dengan backend Google Apps Script untuk menampilkan hasil pemilu secara real-time.</p>
-        <button class="btn amber" onclick="showUrlModal()">⚙️ Atur URL Server</button>
-      </div>`;
-    $('hero-title').textContent = 'Selamat Datang';
-    $('hero-subtitle').textContent = 'Atur URL server untuk mulai menampilkan hasil';
-  }
-
-  function renderError(msg) {
-    $('main-content').innerHTML = `
-      <div class="state-box fade-in">
-        <div class="emoji">⚠️</div>
-        <h3>Gagal Memuat Data</h3>
-        <p>${esc(msg)}</p>
-        <button class="btn" onclick="refreshData()">🔄 Coba Lagi</button>
-        <button class="btn amber" onclick="showUrlModal()" style="margin-left:8px;">⚙️ Ubah URL</button>
-      </div>`;
-    $('hero-title').textContent = 'Terjadi Kesalahan';
-  }
-
-  function renderDashboard() {
-    if (!appData) return;
-    const { config, data } = appData;
-    const st = computeStats(data);
-
-    $('hero-title').textContent = config.kabupatenName || 'Kabupaten';
-    $('hero-subtitle').textContent = `Rekapitulasi ${st.totalSuaraEntries} dari ${st.totalTps} TPS terdaftar`;
-    $('header-subtitle').textContent = `Hasil Pemilu ${config.kabupatenName || ''}`;
-
-    // Live badge
-    if (st.totalSuaraEntries > 0) {
-      $('live-badge-wrap').style.display = 'block';
-      $('live-text').textContent = `Live • ${st.totalTpsFinal} TPS Final`;
-    } else {
-      $('live-badge-wrap').style.display = 'none';
     }
 
-    // Leader
-    const hasVotes = st.totalSah > 0;
-    const leader = !hasVotes ? 0
-      : (st.totalS1 >= st.totalS2 && st.totalS1 >= st.totalS3) ? 1
-      : (st.totalS2 >= st.totalS3) ? 2 : 3;
+    document.getElementById('btnRefresh').addEventListener('click', muatRingkasan);
 
-    const totalSah = st.totalSah || 1;
-    const p1 = st.totalS1 ? st.totalS1 / totalSah * 100 : 0;
-    const p2 = st.totalS2 ? st.totalS2 / totalSah * 100 : 0;
-    const p3 = st.totalS3 ? st.totalS3 / totalSah * 100 : 0;
-
-    $('main-content').innerHTML = `
-      <div class="stat-grid fade-in">
-        <div class="stat-card">
-          <div class="stat-icon blue">🗳️</div>
-          <div><p class="stat-label">Total Suara Sah</p><p class="stat-value" style="color:#1e3a8a;">${fmt(st.totalSah)}</p></div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-icon green">👥</div>
-          <div><p class="stat-label">Pemilih Terdata</p><p class="stat-value" style="color:#15803d;">${fmt(st.totalPemilih)}</p></div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-icon amber">📍</div>
-          <div><p class="stat-label">TPS Terlapor</p><p class="stat-value" style="color:#b45309;">${st.totalSuaraEntries} / ${st.totalTps}</p></div>
-        </div>
-      </div>
-
-      <div class="section fade-in">
-        <div class="section-title">
-          <h3>📊 Perolehan Suara Paslon</h3>
-          <span class="sub">Dari ${st.totalSuaraEntries} TPS</span>
-        </div>
-        <div class="vote-grid">
-          <div class="vote-card p1 ${leader === 1 ? 'leader' : ''}">
-            <div class="vote-num">PASLON 01</div>
-            <p class="vote-name">${esc(config.paslon1)}</p>
-            <p class="vote-count">${fmt(st.totalS1)}</p>
-            <p class="vote-pct">${p1.toFixed(1)}% suara sah</p>
-            <div class="progress-track"><div class="progress-fill" style="width:${p1}%"></div></div>
-          </div>
-          <div class="vote-card p2 ${leader === 2 ? 'leader' : ''}">
-            <div class="vote-num">PASLON 02</div>
-            <p class="vote-name">${esc(config.paslon2)}</p>
-            <p class="vote-count">${fmt(st.totalS2)}</p>
-            <p class="vote-pct">${p2.toFixed(1)}% suara sah</p>
-            <div class="progress-track"><div class="progress-fill" style="width:${p2}%"></div></div>
-          </div>
-          <div class="vote-card p3 ${leader === 3 ? 'leader' : ''}">
-            <div class="vote-num">PASLON 03</div>
-            <p class="vote-name">${esc(config.paslon3)}</p>
-            <p class="vote-count">${fmt(st.totalS3)}</p>
-            <p class="vote-pct">${p3.toFixed(1)}% suara sah</p>
-            <div class="progress-track"><div class="progress-fill" style="width:${p3}%"></div></div>
-          </div>
-        </div>
-        <div style="margin-top:14px;padding:12px 14px;background:#f8fafc;border-radius:10px;border:1px solid #e2e8f0;font-size:12px;color:#64748b;">
-          <strong style="color:#0f172a;">Suara Tidak Sah:</strong> ${fmt(st.totalTidakSah)} suara
-        </div>
-      </div>
-
-      ${st.perKecamatan.length > 0 ? `
-      <div class="section fade-in">
-        <div class="section-title">
-          <h3>🗺️ Rekapitulasi Per Kecamatan</h3>
-          <span class="sub">${st.perKecamatan.length} kecamatan</span>
-        </div>
-        <div class="kec-list">
-          ${st.perKecamatan.map((k, i) => {
-            const tot = k.s1 + k.s2 + k.s3 || 1;
-            const kp1 = k.s1 / tot * 100, kp2 = k.s2 / tot * 100, kp3 = k.s3 / tot * 100;
-            return `
-              <div class="kec-item" id="kec-${i}">
-                <div class="kec-header" onclick="toggleKec(${i})">
-                  <div class="kec-info">
-                    <h4>${esc(k.nama)}</h4>
-                    <p>${k.suaraEntries}/${k.tps} TPS • ${fmt(k.pemilih)} pemilih</p>
-                  </div>
-                  <div class="kec-totals">
-                    <div class="kec-total-item">
-                      <span>Suara Sah</span>
-                      <span style="color:#1e3a8a;">${fmt(k.s1 + k.s2 + k.s3)}</span>
-                    </div>
-                    <span class="kec-chevron">▼</span>
-                  </div>
-                </div>
-                <div class="kec-body">
-                  <div class="kec-body-inner">
-                    <div class="kec-bar-row"><span class="kec-bar-label">01. Paslon</span><div class="kec-bar-track"><div class="kec-bar-fill p1" style="width:${kp1}%"></div></div><span class="kec-bar-val" style="color:#1e3a8a;">${fmt(k.s1)}</span></div>
-                    <div class="kec-bar-row"><span class="kec-bar-label">02. Paslon</span><div class="kec-bar-track"><div class="kec-bar-fill p2" style="width:${kp2}%"></div></div><span class="kec-bar-val" style="color:#b45309;">${fmt(k.s2)}</span></div>
-                    <div class="kec-bar-row"><span class="kec-bar-label">03. Paslon</span><div class="kec-bar-track"><div class="kec-bar-fill p3" style="width:${kp3}%"></div></div><span class="kec-bar-val" style="color:#15803d;">${fmt(k.s3)}</span></div>
-                  </div>
-                </div>
-              </div>`;
-          }).join('')}
-        </div>
-      </div>` : `
-      <div class="state-box fade-in">
-        <div class="emoji">📭</div>
-        <h3>Belum Ada Data</h3>
-        <p>Data hasil pemilu belum tersedia. Silakan cek kembali nanti.</p>
-      </div>`}
-    `;
-
-    $('footer-updated').textContent = `Terakhir diperbarui: ${lastUpdate.toLocaleString('id-ID')}`;
-  }
-
-  function toggleKec(i) {
-    const el = document.getElementById('kec-' + i);
-    if (el) el.classList.toggle('open');
-  }
-
-  document.addEventListener('DOMContentLoaded', () => {
-    if (!gsheetUrl) { renderSetupNeeded(); $('hero-title').textContent = 'Selamat Datang'; }
-    else loadData();
-
-    $('modal-url').addEventListener('click', e => {
-      if (e.target.id === 'modal-url') $('modal-url').classList.remove('show');
-    });
-    document.addEventListener('keydown', e => {
-      if (e.key === 'Escape') $('modal-url').classList.remove('show');
-    });
-  });
-</script>
-
+    // Jalankan pertama kali & ulangi otomatis tiap 10 detik
+    muatRingkasan();
+    setInterval(muatRingkasan, 10000);
+  </script>
 </body>
 </html>
