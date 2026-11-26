@@ -22,12 +22,9 @@ export async function render(container, profil) {
         cursor: pointer;
         text-align: center;
       }
-      .btn-add-top.secondary {
-        background: #2563eb;
-      }
-      .btn-add-top.tertiary {
-        background: #0f766e;
-      }
+      .btn-add-top.secondary { background: #2563eb; }
+      .btn-add-top.tertiary { background: #0f766e; }
+
       .kec-card {
         background: #ffffff;
         border: 1px solid #cbd5e1;
@@ -72,29 +69,24 @@ export async function render(container, profil) {
         gap: 6px;
         margin-top: 8px;
       }
-      .tps-chip {
+      .tps-btn {
         display: inline-flex;
         align-items: center;
-        gap: 5px;
+        gap: 6px;
         background: #e2e8f0;
         color: #0f172a;
-        padding: 4px 8px;
-        border-radius: 7px;
+        border: 1px solid #cbd5e1;
+        padding: 6px 11px;
+        border-radius: 8px;
         font-size: 12px;
-        font-weight: 600;
-      }
-      .tps-del {
-        border: none;
-        background: #fee2e2;
-        color: #dc2626;
-        font-weight: 800;
-        border-radius: 4px;
+        font-weight: 700;
         cursor: pointer;
-        padding: 1px 6px;
-        font-size: 12px;
+      }
+      .tps-btn:active {
+        background: #cbd5e1;
       }
       .btn-xs {
-        padding: 4px 9px;
+        padding: 5px 9px;
         font-size: 11px;
         font-weight: 700;
         border-radius: 6px;
@@ -119,9 +111,7 @@ export async function render(container, profil) {
         padding: 16px;
         z-index: 999;
       }
-      .modal-backdrop.open {
-        display: flex;
-      }
+      .modal-backdrop.open { display: flex; }
       .modal-box {
         width: 100%;
         max-width: 420px;
@@ -139,10 +129,10 @@ export async function render(container, profil) {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        margin-bottom: 16px;
+        margin-bottom: 14px;
       }
       .modal-header h3 {
-        font-size: 18px;
+        font-size: 17px;
         font-weight: 700;
         color: #0f172a;
       }
@@ -191,6 +181,33 @@ export async function render(container, profil) {
         cursor: pointer;
         letter-spacing: 0.4px;
       }
+      .modal-btn-danger {
+        width: 100%;
+        padding: 11px;
+        background: #fee2e2;
+        color: #dc2626;
+        font-size: 13px;
+        font-weight: 700;
+        border: 1px solid #fecaca;
+        border-radius: 10px;
+        cursor: pointer;
+        margin-top: 8px;
+      }
+      .tps-stat-box {
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 10px;
+        padding: 12px;
+        margin-bottom: 14px;
+        font-size: 13px;
+      }
+      .tps-stat-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 4px 0;
+        border-bottom: 1px dashed #e2e8f0;
+      }
+      .tps-stat-row:last-child { border-bottom: none; }
     </style>
 
     <div id="msgWilayah" class="msg"></div>
@@ -259,6 +276,30 @@ export async function render(container, profil) {
         </form>
       </div>
     </div>
+
+    <!-- POPUP 4: DETAIL & KELOLA TPS -->
+    <div class="modal-backdrop" id="modalDetailTps">
+      <div class="modal-box">
+        <div class="modal-header">
+          <h3 id="detailTpsTitle">Detail TPS</h3>
+          <button type="button" class="modal-close" data-close="modalDetailTps">×</button>
+        </div>
+
+        <div class="tps-stat-box" id="detailTpsStats">
+          Memuat informasi TPS...
+        </div>
+
+        <form id="formEditTps">
+          <input type="hidden" id="editTpsId" />
+          <label>Ubah Nomor TPS</label>
+          <input type="text" id="editNomorTps" required />
+          <button type="submit" class="modal-btn-save">SIMPAN PERUBAHAN</button>
+        </form>
+
+        <button type="button" class="modal-btn-danger" id="btnHapusDetailTps">Hapus TPS Ini</button>
+        <button type="button" class="modal-btn-cancel" data-close="modalDetailTps">Tutup</button>
+      </div>
+    </div>
   `;
 
   const msgEl = document.getElementById('msgWilayah');
@@ -268,7 +309,6 @@ export async function render(container, profil) {
     msgEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   };
 
-  // Kontrol buka/tutup modal
   const bukaModal = (id) => document.getElementById(id).classList.add('open');
   const tutupModal = (id) => document.getElementById(id).classList.remove('open');
 
@@ -297,6 +337,47 @@ export async function render(container, profil) {
     bukaModal('modalTps');
     document.getElementById('nomorTps').focus();
   });
+
+  async function bukaDetailTps(tpsId, nomorTps, namaDesa) {
+    document.getElementById('detailTpsTitle').textContent = `TPS ${nomorTps} • ${namaDesa}`;
+    document.getElementById('editTpsId').value = tpsId;
+    document.getElementById('editNomorTps').value = nomorTps;
+    document.getElementById('detailTpsStats').innerHTML = 'Memuat data TPS...';
+    bukaModal('modalDetailTps');
+
+    const [
+      { count: jmlKtp },
+      { data: dataSuara },
+      { data: daftarSaksi }
+    ] = await Promise.all([
+      supabase.from('data_ktp').select('id', { count: 'exact', head: true }).eq('tps_id', tpsId),
+      supabase.from('suara_tps').select('suara_calon, suara_tidak_sah').eq('tps_id', tpsId).maybeSingle(),
+      supabase.from('users_tim').select('nama_lengkap, no_hp').eq('tps_id', tpsId).eq('role', 'saksi')
+    ]);
+
+    const namaSaksi = (daftarSaksi && daftarSaksi.length > 0)
+      ? daftarSaksi.map(s => `${s.nama_lengkap}${s.no_hp ? ' (' + s.no_hp + ')' : ''}`).join(', ')
+      : 'Belum ada saksi';
+
+    const infoSuara = dataSuara
+      ? `${Number(dataSuara.suara_calon || 0).toLocaleString('id-ID')} suara (Tidak sah: ${dataSuara.suara_tidak_sah || 0})`
+      : 'Belum masuk';
+
+    document.getElementById('detailTpsStats').innerHTML = `
+      <div class="tps-stat-row">
+        <span style="color:#64748b;">KTP Terdaftar:</span>
+        <strong>${Number(jmlKtp || 0).toLocaleString('id-ID')} KTP</strong>
+      </div>
+      <div class="tps-stat-row">
+        <span style="color:#64748b;">Suara C1 Masuk:</span>
+        <strong>${infoSuara}</strong>
+      </div>
+      <div class="tps-stat-row">
+        <span style="color:#64748b;">Saksi TPS:</span>
+        <strong>${namaSaksi}</strong>
+      </div>
+    `;
+  }
 
   async function muatData() {
     let queryDesa = supabase
@@ -340,10 +421,9 @@ export async function render(container, profil) {
       const tpsUrut = (d.tps || []).sort((a, b) => a.nomor_tps.localeCompare(b.nomor_tps));
       const badgeTps = tpsUrut.length > 0
         ? tpsUrut.map(t => `
-            <span class="tps-chip">
-              TPS ${t.nomor_tps}
-              <button type="button" class="tps-del" data-hapus-tps="${t.id}" data-nomor="${t.nomor_tps}">×</button>
-            </span>
+            <button type="button" class="tps-btn" data-detail-tps="${t.id}" data-nomor="${t.nomor_tps}" data-desa-nama="${d.nama_desa}">
+              TPS ${t.nomor_tps} <span style="color:#64748b; font-size:11px;">▸</span>
+            </button>
           `).join('')
         : '<span style="font-size:12px; color:#64748b;">Belum ada TPS</span>';
 
@@ -417,6 +497,17 @@ export async function render(container, profil) {
       listEl.innerHTML = html;
     }
 
+    // Klik tombol TPS untuk buka pop-up detail
+    listEl.querySelectorAll('[data-detail-tps]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        bukaDetailTps(
+          parseInt(btn.dataset.detailTps, 10),
+          btn.dataset.nomor,
+          btn.dataset.desaNama
+        );
+      });
+    });
+
     // Tombol pintas + Desa langsung pada kartu Kecamatan
     listEl.querySelectorAll('[data-quick-desa]').forEach(btn => {
       btn.addEventListener('click', () => {
@@ -465,21 +556,6 @@ export async function render(container, profil) {
       });
     });
 
-    // Hapus TPS
-    listEl.querySelectorAll('[data-hapus-tps]').forEach(btn => {
-      btn.addEventListener('click', async () => {
-        if (!confirm(`Hapus TPS ${btn.dataset.nomor}?`)) return;
-        const { error: delErr, count } = await supabase
-          .from('tps')
-          .delete({ count: 'exact' })
-          .eq('id', btn.dataset.hapusTps);
-        if (delErr) return showMsg(`Gagal menghapus TPS: ${delErr.message}`, true);
-        if (count === 0) return showMsg('Izin ditolak oleh server.', true);
-        showMsg(`TPS ${btn.dataset.nomor} berhasil dihapus.`);
-        await muatData();
-      });
-    });
-
     // Hubungkan desa lama ke kecamatan
     listEl.querySelectorAll('.btn-assign-kec').forEach(btn => {
       btn.addEventListener('click', async () => {
@@ -497,35 +573,37 @@ export async function render(container, profil) {
     });
   }
 
-  document.getElementById('formKecamatan').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const nama_kecamatan = document.getElementById('namaKecamatan').value.trim();
-    const { error } = await supabase.from('kecamatan').insert({ nama_kecamatan });
-    if (error) return showMsg(`Gagal menambah kecamatan: ${error.message}`, true);
+  if (isSuper) {
+    document.getElementById('formKecamatan').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const nama_kecamatan = document.getElementById('namaKecamatan').value.trim();
+      const { error } = await supabase.from('kecamatan').insert({ nama_kecamatan });
+      if (error) return showMsg(`Gagal menambah kecamatan: ${error.message}`, true);
 
-    e.target.reset();
-    tutupModal('modalKec');
-    showMsg(`Kecamatan "${nama_kecamatan}" berhasil ditambahkan.`);
-    await muatData();
-  });
+      e.target.reset();
+      tutupModal('modalKec');
+      showMsg(`Kecamatan "${nama_kecamatan}" berhasil ditambahkan.`);
+      await muatData();
+    });
 
-  document.getElementById('formDesa').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const kecamatan_id = parseInt(document.getElementById('pilihKecamatanDesa').value, 10);
-    const nama_desa = document.getElementById('namaDesa').value.trim();
-    const target_ktp = parseInt(document.getElementById('targetKtp').value, 10) || 0;
+    document.getElementById('formDesa').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const kecamatan_id = parseInt(document.getElementById('pilihKecamatanDesa').value, 10);
+      const nama_desa = document.getElementById('namaDesa').value.trim();
+      const target_ktp = parseInt(document.getElementById('targetKtp').value, 10) || 0;
 
-    if (!kecamatan_id) return showMsg('Pilih atau tambahkan kecamatan terlebih dahulu.', true);
+      if (!kecamatan_id) return showMsg('Pilih atau tambahkan kecamatan terlebih dahulu.', true);
 
-    const { error } = await supabase.from('desa').insert({ kecamatan_id, nama_desa, target_ktp });
-    if (error) return showMsg(`Gagal menambah desa: ${error.message}`, true);
+      const { error } = await supabase.from('desa').insert({ kecamatan_id, nama_desa, target_ktp });
+      if (error) return showMsg(`Gagal menambah desa: ${error.message}`, true);
 
-    document.getElementById('namaDesa').value = '';
-    document.getElementById('targetKtp').value = '';
-    tutupModal('modalDesa');
-    showMsg(`Desa "${nama_desa}" berhasil ditambahkan.`);
-    await muatData();
-  });
+      document.getElementById('namaDesa').value = '';
+      document.getElementById('targetKtp').value = '';
+      tutupModal('modalDesa');
+      showMsg(`Desa "${nama_desa}" berhasil ditambahkan.`);
+      await muatData();
+    });
+  }
 
   document.getElementById('formTps').addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -542,6 +620,40 @@ export async function render(container, profil) {
     document.getElementById('nomorTps').value = '';
     tutupModal('modalTps');
     showMsg(`TPS ${nomor_tps} berhasil ditambahkan.`);
+    await muatData();
+  });
+
+  // Simpan perubahan nomor TPS dari pop-up Detail TPS
+  document.getElementById('formEditTps').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const tpsId = parseInt(document.getElementById('editTpsId').value, 10);
+    const nomorBaru = document.getElementById('editNomorTps').value.trim();
+    if (!nomorBaru) return;
+
+    const { error } = await supabase.from('tps').update({ nomor_tps: nomorBaru }).eq('id', tpsId);
+    if (error) return showMsg(`Gagal mengubah nomor TPS: ${error.message}`, true);
+
+    tutupModal('modalDetailTps');
+    showMsg(`Nomor TPS berhasil diubah menjadi TPS ${nomorBaru}.`);
+    await muatData();
+  });
+
+  // Hapus TPS dari pop-up Detail TPS
+  document.getElementById('btnHapusDetailTps').addEventListener('click', async () => {
+    const tpsId = parseInt(document.getElementById('editTpsId').value, 10);
+    const nomor = document.getElementById('editNomorTps').value;
+    if (!confirm(`Hapus TPS ${nomor}?`)) return;
+
+    const { error: delErr, count } = await supabase
+      .from('tps')
+      .delete({ count: 'exact' })
+      .eq('id', tpsId);
+
+    if (delErr) return showMsg(`Gagal menghapus TPS: ${delErr.message}`, true);
+    if (count === 0) return showMsg('Izin ditolak oleh server.', true);
+
+    tutupModal('modalDetailTps');
+    showMsg(`TPS ${nomor} berhasil dihapus.`);
     await muatData();
   });
 
