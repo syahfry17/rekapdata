@@ -29,7 +29,6 @@
       padding-bottom: 40px;
     }
 
-    /* Topbar */
     .topbar {
       background: var(--primary);
       color: #fff;
@@ -48,20 +47,9 @@
       gap: 10px;
     }
 
-    .user-name {
-      font-size: 15px;
-      font-weight: 700;
-    }
-
-    .user-role {
-      font-size: 12px;
-      color: #bfdbfe;
-    }
-
-    .top-actions {
-      display: flex;
-      gap: 8px;
-    }
+    .user-name { font-size: 15px; font-weight: 700; }
+    .user-role { font-size: 12px; color: #bfdbfe; }
+    .top-actions { display: flex; gap: 8px; }
 
     .btn-sm {
       padding: 7px 11px;
@@ -75,7 +63,6 @@
       cursor: pointer;
     }
 
-    /* Tab Menu */
     .nav-tabs {
       background: var(--card);
       border-bottom: 1px solid var(--border);
@@ -107,7 +94,6 @@
       border-bottom-color: var(--primary);
     }
 
-    /* Workspace */
     .container {
       max-width: 800px;
       margin: 16px auto 0;
@@ -139,9 +125,7 @@
       .form-grid { grid-template-columns: 1fr; }
     }
 
-    .form-group {
-      margin-bottom: 10px;
-    }
+    .form-group { margin-bottom: 10px; }
 
     label {
       display: block;
@@ -173,9 +157,7 @@
       cursor: pointer;
     }
 
-    .btn-primary:disabled {
-      opacity: 0.6;
-    }
+    .btn-primary:disabled { opacity: 0.6; }
 
     .msg {
       padding: 10px 12px;
@@ -292,15 +274,15 @@
       menus.push({ id: 'wilayah', label: '1. Wilayah & TPS', file: './modules/admin-wilayah.js' });
       menus.push({ id: 'akun', label: '2. Akun Tim', file: './modules/admin-akun.js' });
       menus.push({ id: 'ktp', label: '3. Data KTP', file: './modules/ktp-manager.js' });
-      menus.push({ id: 'suara', label: '4. Suara TPS', file: null });
+      menus.push({ id: 'suara', label: '4. Suara TPS', file: './modules/suara-tps.js' });
     } else if (profil.role === 'admin_desa') {
       menus.push({ id: 'wilayah', label: 'TPS Desa', file: './modules/admin-wilayah.js' });
       menus.push({ id: 'ktp', label: 'Data KTP', file: './modules/ktp-manager.js' });
-      menus.push({ id: 'suara', label: 'Suara TPS', file: null });
+      menus.push({ id: 'suara', label: 'Suara TPS', file: './modules/suara-tps.js' });
     } else if (profil.role === 'pengepul') {
       menus.push({ id: 'ktp', label: 'Input & Rekap KTP', file: './modules/ktp-manager.js' });
     } else if (profil.role === 'saksi') {
-      menus.push({ id: 'suara', label: 'Input Suara TPS', file: null });
+      menus.push({ id: 'suara', label: 'Input Suara TPS', file: './modules/suara-tps.js' });
     }
 
     const tabBar = document.getElementById('tabBar');
@@ -309,17 +291,6 @@
     async function bukaTab(menu, btnEl) {
       document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
       if (btnEl) btnEl.classList.add('active');
-
-      if (!menu.file) {
-        workspace.innerHTML = `
-          <div class="card">
-            <h2>${menu.label}</h2>
-            <p style="font-size:14px; color:#64748b;">
-              Modul ini siap kita pasang di tahap berikutnya setelah data Desa, TPS, dan Akun Tim selesai diisi.
-            </p>
-          </div>`;
-        return;
-      }
 
       workspace.innerHTML = `<div class="card">Memuat ${menu.label}...</div>`;
       const mod = await import(`./js/${menu.file.replace('./', '')}`);
