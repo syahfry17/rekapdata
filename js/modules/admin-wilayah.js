@@ -31,6 +31,11 @@ export async function render(container, profil) {
         border-radius: 12px;
         padding: 12px;
         margin-bottom: 10px;
+        transition: border-color 0.2s ease, box-shadow 0.2s ease;
+      }
+      .kec-card.expanded {
+        border-color: #60a5fa;
+        box-shadow: 0 4px 14px rgba(37, 99, 235, 0.08);
       }
       .kec-header {
         display: flex;
@@ -60,16 +65,24 @@ export async function render(container, profil) {
         display: block;
       }
 
+      /* Garis keliling desa yang menyala lembut saat rincian dibuka */
       .desa-box {
         background: #f8fafc;
-        border: 1px solid #e2e8f0;
+        border: 1.5px solid #e2e8f0;
         border-radius: 10px;
         padding: 10px;
         margin-top: 8px;
+        transition: border-color 0.25s ease, box-shadow 0.25s ease, background-color 0.25s ease;
       }
       .desa-box:first-child {
         margin-top: 0;
       }
+      .kec-body.open .desa-box {
+        background: #ffffff;
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.16), 0 0 12px rgba(37, 99, 235, 0.18);
+      }
+
       .desa-head {
         display: flex;
         justify-content: space-between;
@@ -334,7 +347,6 @@ export async function render(container, profil) {
     msgEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   };
 
-  // Menyimpan ID kecamatan yang sedang dibuka rinciannya agar tidak tertutup saat muat ulang
   const openedKecIds = new Set();
 
   const bukaModal = (id) => document.getElementById(id).classList.add('open');
@@ -499,7 +511,7 @@ export async function render(container, profil) {
         const isOpen = openedKecIds.has(String(k.id));
 
         html += `
-          <div class="kec-card">
+          <div class="kec-card ${isOpen ? 'expanded' : ''}" id="cardKec-${k.id}">
             <div class="kec-header">
               <div>
                 <div class="kec-title">📍 ${k.nama_kecamatan} (${desaDiKec.length} Desa)</div>
@@ -525,7 +537,7 @@ export async function render(container, profil) {
       const desaTanpaKec = desaList.filter(d => !d.kecamatan_id);
       if (desaTanpaKec.length > 0) {
         html += `
-          <div class="kec-card" style="border-color:#fcd34d;">
+          <div class="kec-card expanded" style="border-color:#fcd34d;">
             <div class="kec-header">
               <div class="kec-title" style="color:#d97706;">⚠️ Belum Masuk Kecamatan (${desaTanpaKec.length})</div>
             </div>
@@ -538,15 +550,16 @@ export async function render(container, profil) {
       listEl.innerHTML = html;
     }
 
-    // Tombol Rincian / Tutup Rincian per Kecamatan
     listEl.querySelectorAll('[data-toggle-rincian]').forEach(btn => {
       btn.addEventListener('click', () => {
         const kecId = String(btn.dataset.toggleRincian);
         const bodyEl = document.getElementById(`rincianKec-${kecId}`);
+        const cardEl = document.getElementById(`cardKec-${kecId}`);
         if (!bodyEl) return;
 
         const akanBuka = !bodyEl.classList.contains('open');
         bodyEl.classList.toggle('open', akanBuka);
+        if (cardEl) cardEl.classList.toggle('expanded', akanBuka);
         btn.classList.toggle('active', akanBuka);
         btn.textContent = akanBuka ? 'Tutup Rincian ▴' : 'Rincian ▾';
 
@@ -555,7 +568,6 @@ export async function render(container, profil) {
       });
     });
 
-    // Klik tombol TPS untuk buka pop-up detail
     listEl.querySelectorAll('[data-detail-tps]').forEach(btn => {
       btn.addEventListener('click', () => {
         bukaDetailTps(
@@ -566,7 +578,6 @@ export async function render(container, profil) {
       });
     });
 
-    // Tombol pintas + Desa langsung pada kartu Kecamatan
     listEl.querySelectorAll('[data-quick-desa]').forEach(btn => {
       btn.addEventListener('click', () => {
         selKec.value = btn.dataset.quickDesa;
@@ -575,7 +586,6 @@ export async function render(container, profil) {
       });
     });
 
-    // Tombol pintas + TPS langsung pada kartu Desa
     listEl.querySelectorAll('[data-quick-tps]').forEach(btn => {
       btn.addEventListener('click', () => {
         selectDesa.value = btn.dataset.quickTps;
@@ -584,7 +594,6 @@ export async function render(container, profil) {
       });
     });
 
-    // Hapus Kecamatan
     listEl.querySelectorAll('[data-hapus-kec]').forEach(btn => {
       btn.addEventListener('click', async () => {
         if (!confirm(`Hapus ${btn.dataset.nama}?`)) return;
@@ -600,7 +609,6 @@ export async function render(container, profil) {
       });
     });
 
-    // Hapus Desa
     listEl.querySelectorAll('[data-hapus-desa]').forEach(btn => {
       btn.addEventListener('click', async () => {
         if (!confirm(`Hapus ${btn.dataset.nama}? Semua TPS di desa ini juga akan terhapus.`)) return;
@@ -615,7 +623,6 @@ export async function render(container, profil) {
       });
     });
 
-    // Hubungkan desa lama ke kecamatan
     listEl.querySelectorAll('.btn-assign-kec').forEach(btn => {
       btn.addEventListener('click', async () => {
         const desaId = parseInt(btn.dataset.desa, 10);
