@@ -9,7 +9,9 @@ const authCreator = createClient(supabase.supabaseUrl, supabase.supabaseKey, {
   }
 });
 
-export async function render(container) {
+export async function render(container, profil) {
+  const myId = profil?.id || '';
+
   container.innerHTML = `
     <style>
       .btn-open-akun {
@@ -98,6 +100,17 @@ export async function render(container) {
         background: #ffffff;
         border-color: #3b82f6;
         box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.14), 0 0 10px rgba(37, 99, 235, 0.16);
+      }
+
+      .tim-actions {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+        flex-shrink: 0;
+      }
+      .btn-hapus-akun {
+        color: #dc2626 !important;
+        border-color: #fecaca !important;
       }
 
       .email-pill {
@@ -279,7 +292,6 @@ export async function render(container) {
     msgEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   };
 
-  // Menyimpan ID grup yang sedang dibuka rinciannya
   const openedGroupIds = new Set();
 
   const modalAkun = document.getElementById('modalBuatAkun');
@@ -390,6 +402,8 @@ export async function render(container) {
       ? `${u.desa.nama_desa}${u.tps?.nomor_tps ? ' • TPS ' + u.tps.nomor_tps : ''}`
       : 'Semua Wilayah';
 
+    const isSelf = String(u.id) === String(myId);
+
     return `
       <div class="tim-item">
         <div style="flex:1;">
@@ -402,9 +416,16 @@ export async function render(container) {
           </div>
           ${u.email ? `<div class="email-pill">✉️ ${u.email}</div>` : ''}
         </div>
-        <button class="btn-mini" data-id="${u.id}" data-aktif="${u.aktif}">
-          ${u.aktif ? 'Nonaktifkan' : 'Aktifkan'}
-        </button>
+        <div class="tim-actions">
+          <button type="button" class="btn-mini btn-toggle-aktif" data-id="${u.id}" data-aktif="${u.aktif}">
+            ${u.aktif ? 'Nonaktifkan' : 'Aktifkan'}
+          </button>
+          ${!isSelf ? `
+            <button type="button" class="btn-mini btn-hapus-akun" data-hapus-id="${u.id}" data-nama="${u.nama_lengkap}" data-kec-id="${u.desa?.kecamatan_id || ''}" data-role="${u.role}">
+              Hapus
+            </button>
+          ` : ''}
+        </div>
       </div>
     `;
   }
@@ -474,7 +495,6 @@ export async function render(container) {
 
     let html = '';
 
-    // 1. Kelompok Super Admin Pusat
     const superAdmins = hasil.filter(u => u.role === 'super_admin');
     html += renderKelompokAkun(
       'super',
@@ -483,7 +503,6 @@ export async function render(container) {
       'border-color:#93c5fd; background:#f8faff;'
     );
 
-    // 2. Kelompokkan per Kecamatan
     semuaKecamatan.forEach(k => {
       const anggotaKec = urutkanAnggota(
         hasil.filter(u => u.role !== 'super_admin' && u.desa?.kecamatan_id === k.id)
@@ -491,7 +510,6 @@ export async function render(container) {
       html += renderKelompokAkun(`kec-${k.id}`, `📍 ${k.nama_kecamatan}`, anggotaKec);
     });
 
-    // 3. Kelompok Anggota yang desanya belum terhubung ke kecamatan
     const tanpaKec = urutkanAnggota(
       hasil.filter(u => u.role !== 'super_admin' && !u.desa?.kecamatan_id)
     );
@@ -505,7 +523,6 @@ export async function render(container) {
 
     listEl.innerHTML = html;
 
-    // Tombol Rincian / Tutup Rincian per kelompok
     listEl.querySelectorAll('[data-toggle-akun]').forEach(btn => {
       btn.addEventListener('click', () => {
         const grpKey = String(btn.dataset.toggleAkun);
@@ -524,11 +541,36 @@ export async function render(container) {
       });
     });
 
-    listEl.querySelectorAll('.btn-mini[data-id]').forEach(btn => {
+    listEl.querySelectorAll('.btn-toggle-aktif').forEach(btn => {
       btn.addEventListener('click', async () => {
         const id = btn.dataset.id;
         const statusBaru = btn.dataset.aktif !== 'true';
         await supabase.from('users_tim').update({ aktif: statusBaru }).eq('id', id);
+        await muatData();
+      });
+    });
+
+    listEl.querySelectorAll('.btn-hapus-akun').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const targetId = btn.dataset.hapusId;
+        const namaAnggota = btn.dataset.nama;
+        const kecId = btn.dataset.kecId;
+        const roleAnggota = btn.dataset.role;
+
+        if (!confirm(`Hapus akun "${namaAnggota}" dari daftar tim?`)) return;
+
+        const { error: delErr, count } = await supabase
+          .from('users_tim')
+          .delete({ count: 'exact' })
+          .eq('id', targetId);
+
+        if (delErr) return showMsg(`Gagal menghapus akun: ${delErr.message}`, true);
+        if (count === 0) return showMsg('Penghapusan ditolak oleh izin server.', true);
+
+        if (roleAnggota === 'super_admin') openedGroupIds.add('super');
+        else if (kecId) openedGroupIds.add(`kec-${kecId}`);
+
+        showMsg(`Akun "${namaAnggota}" berhasil dihapus.`);
         await muatData();
       });
     });
