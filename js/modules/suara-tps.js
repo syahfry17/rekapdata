@@ -40,6 +40,7 @@ export async function render(container, profil) {
         transform: scale(0.99);
       }
 
+      /* Level 1: Grup Kecamatan */
       .suara-kec-group {
         background: #ffffff;
         border: 1px solid #cbd5e1;
@@ -79,6 +80,51 @@ export async function render(container, profil) {
       .suara-kec-body.open {
         display: block;
       }
+
+      /* Level 2: Grup Desa di dalam Kecamatan */
+      .suara-desa-group {
+        background: #f8fafc;
+        border: 1px solid #cbd5e1;
+        border-radius: 10px;
+        padding: 10px 12px;
+        margin-top: 8px;
+        transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+      }
+      .suara-desa-group:first-child {
+        margin-top: 0;
+      }
+      .suara-desa-group.expanded {
+        background: #ffffff;
+        border-color: #93c5fd;
+        box-shadow: 0 2px 10px rgba(37, 99, 235, 0.08);
+      }
+      .suara-desa-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+      .suara-desa-title {
+        font-size: 13px;
+        font-weight: 700;
+        color: #0f172a;
+      }
+      .suara-desa-sub {
+        font-size: 11px;
+        color: #64748b;
+        margin-top: 2px;
+      }
+      .suara-desa-body {
+        display: none;
+        margin-top: 10px;
+        padding-top: 10px;
+        border-top: 1px dashed #cbd5e1;
+      }
+      .suara-desa-body.open {
+        display: block;
+      }
+
       .btn-rincian-suara {
         padding: 5px 9px;
         font-size: 11px;
@@ -95,7 +141,7 @@ export async function render(container, profil) {
         color: #ffffff;
       }
 
-      /* Kartu laporan suara dengan garis biru saat rincian kecamatan dibuka */
+      /* Level 3: Kartu Laporan TPS dengan garis biru menyala saat rincian desa dibuka */
       .suara-tps-item {
         background: #f8fafc;
         border: 1.5px solid #e2e8f0;
@@ -110,10 +156,10 @@ export async function render(container, profil) {
       .suara-tps-item:first-child {
         margin-top: 0;
       }
-      .suara-kec-body.open .suara-tps-item {
+      .suara-desa-body.open .suara-tps-item {
         background: #ffffff;
         border-color: #3b82f6;
-        box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.14), 0 0 10px rgba(37, 99, 235, 0.16);
+        box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.16), 0 0 12px rgba(37, 99, 235, 0.2);
       }
 
       /* Gaya Modal Pop-up Suara TPS */
@@ -244,8 +290,9 @@ export async function render(container, profil) {
     msgEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   };
 
-  // Menyimpan ID kelompok kecamatan yang sedang dibuka rinciannya
+  // Menyimpan ID kecamatan & desa yang sedang dibuka rinciannya
   const openedKecSuaraIds = new Set();
+  const openedDesaSuaraIds = new Set();
 
   let daftarDesa = [];
   let existingRecord = null;
@@ -397,20 +444,21 @@ export async function render(container, profil) {
 
   tpsEl.addEventListener('change', isiFormJikaSudahAda);
 
-  function renderKartuSuara(item) {
+  function renderKartuTpsSuara(item) {
     const isLocked = item.terkunci !== false;
     const badgeKunci = isLocked
       ? `<span class="badge" style="background:#f1f5f9; color:#334155;">🔒 Terkunci</span>`
       : `<span class="badge" style="background:#fef3c7; color:#92400e;">🔓 Terbuka</span>`;
 
     const kecIdVal = item.desa?.kecamatan_id || '';
+    const desaIdVal = item.desa_id || '';
 
     const aksiAdmin = canManage ? `
       <div style="display:flex; gap:6px; margin-top:8px; width:100%;">
-        <button type="button" class="btn-mini btn-edit-suara" data-desa="${item.desa_id}" data-tps="${item.tps_id}" data-kec="${kecIdVal}">
+        <button type="button" class="btn-mini btn-edit-suara" data-desa="${desaIdVal}" data-tps="${item.tps_id}" data-kec="${kecIdVal}">
           ✏️ Edit Angka
         </button>
-        <button type="button" class="btn-mini btn-toggle-kunci" data-tps="${item.tps_id}" data-kec="${kecIdVal}" data-locked="${isLocked}">
+        <button type="button" class="btn-mini btn-toggle-kunci" data-tps="${item.tps_id}" data-desa="${desaIdVal}" data-kec="${kecIdVal}" data-locked="${isLocked}">
           ${isLocked ? '🔓 Buka Kunci Saksi' : '🔒 Kunci Kembali'}
         </button>
       </div>` : '';
@@ -418,7 +466,7 @@ export async function render(container, profil) {
     return `
       <div class="suara-tps-item">
         <div style="width:100%; display:flex; justify-content:space-between; align-items:center; gap:6px; flex-wrap:wrap;">
-          <strong>${item.desa?.nama_desa || '-'} • TPS ${item.tps?.nomor_tps || '-'}</strong>
+          <strong>TPS ${item.tps?.nomor_tps || '-'}</strong>
           <div style="display:flex; gap:5px; align-items:center;">
             ${badgeKunci}
             <span class="badge" style="background:#d1fae5; color:#065f46; font-size:12px;">
@@ -432,6 +480,30 @@ export async function render(container, profil) {
         </div>
         ${item.catatan ? `<div style="font-size:12px; color:#64748b; margin-top:2px;">Catatan: ${item.catatan}</div>` : ''}
         ${aksiAdmin}
+      </div>
+    `;
+  }
+
+  function renderKelompokDesaSuara(desaObj) {
+    const isDesaOpen = openedDesaSuaraIds.has(desaObj.key);
+    const tpsUrut = [...desaObj.items].sort((a, b) =>
+      String(a.tps?.nomor_tps || '').localeCompare(String(b.tps?.nomor_tps || ''))
+    );
+
+    return `
+      <div class="suara-desa-group ${isDesaOpen ? 'expanded' : ''}" id="suaraDesaCard-${desaObj.key}">
+        <div class="suara-desa-head">
+          <div>
+            <div class="suara-desa-title">🏘️ ${desaObj.namaDesa} (${tpsUrut.length} TPS)</div>
+            <div class="suara-desa-sub">Total Suara Desa: <strong>${desaObj.totalSuara.toLocaleString('id-ID')}</strong></div>
+          </div>
+          <button type="button" class="btn-rincian-suara ${isDesaOpen ? 'active' : ''}" data-toggle-suara-desa="${desaObj.key}">
+            ${isDesaOpen ? 'Tutup Rincian ▴' : 'Rincian TPS ▾'}
+          </button>
+        </div>
+        <div class="suara-desa-body ${isDesaOpen ? 'open' : ''}" id="suaraDesaBody-${desaObj.key}">
+          ${tpsUrut.map(renderKartuTpsSuara).join('')}
+        </div>
       </div>
     `;
   }
@@ -463,53 +535,75 @@ export async function render(container, profil) {
       return;
     }
 
-    // Kelompokkan laporan suara per Kecamatan
+    // Kelompokkan per Kecamatan -> per Desa -> per TPS
     const grupKecMap = new Map();
     rows.forEach(item => {
       const kecKey = item.desa?.kecamatan_id ? `kec-${item.desa.kecamatan_id}` : 'tanpa-kec';
       const namaKec = item.desa?.kecamatan?.nama_kecamatan || 'Wilayah Belum Masuk Kecamatan';
+      const desaKey = `desa-${item.desa_id || 'lainnya'}`;
+      const namaDesa = item.desa?.nama_desa || 'Desa Lainnya';
+      const suaraAngka = Number(item.suara_calon || 0);
+
       if (!grupKecMap.has(kecKey)) {
         grupKecMap.set(kecKey, {
           key: kecKey,
           namaKec,
-          items: [],
-          totalSuara: 0
+          totalTps: 0,
+          totalSuara: 0,
+          desaMap: new Map()
         });
       }
-      const g = grupKecMap.get(kecKey);
-      g.items.push(item);
-      g.totalSuara += Number(item.suara_calon || 0);
+      const kecObj = grupKecMap.get(kecKey);
+      kecObj.totalTps += 1;
+      kecObj.totalSuara += suaraAngka;
+
+      if (!kecObj.desaMap.has(desaKey)) {
+        kecObj.desaMap.set(desaKey, {
+          key: desaKey,
+          namaDesa,
+          totalSuara: 0,
+          items: []
+        });
+      }
+      const desaObj = kecObj.desaMap.get(desaKey);
+      desaObj.totalSuara += suaraAngka;
+      desaObj.items.push(item);
     });
 
-    const grupList = Array.from(grupKecMap.values()).sort((a, b) =>
+    const kecList = Array.from(grupKecMap.values()).sort((a, b) =>
       a.namaKec.localeCompare(b.namaKec)
     );
 
-    listEl.innerHTML = grupList.map(g => {
-      const isOpen = openedKecSuaraIds.has(g.key);
+    listEl.innerHTML = kecList.map(k => {
+      const isKecOpen = openedKecSuaraIds.has(k.key);
+      const desaList = Array.from(k.desaMap.values()).sort((a, b) =>
+        a.namaDesa.localeCompare(b.namaDesa)
+      );
+
       return `
-        <div class="suara-kec-group ${isOpen ? 'expanded' : ''}" id="suaraGrpCard-${g.key}">
+        <div class="suara-kec-group ${isKecOpen ? 'expanded' : ''}" id="suaraKecCard-${k.key}">
           <div class="suara-kec-head">
             <div>
-              <div class="suara-kec-title">📍 ${g.namaKec} (${g.items.length} TPS)</div>
-              <div class="suara-kec-sub">Total Suara: <strong>${g.totalSuara.toLocaleString('id-ID')}</strong></div>
+              <div class="suara-kec-title">📍 ${k.namaKec} (${desaList.length} Desa • ${k.totalTps} TPS)</div>
+              <div class="suara-kec-sub">Total Suara: <strong>${k.totalSuara.toLocaleString('id-ID')}</strong></div>
             </div>
-            <button type="button" class="btn-rincian-suara ${isOpen ? 'active' : ''}" data-toggle-suara-kec="${g.key}">
-              ${isOpen ? 'Tutup Rincian ▴' : 'Rincian ▾'}
+            <button type="button" class="btn-rincian-suara ${isKecOpen ? 'active' : ''}" data-toggle-suara-kec="${k.key}">
+              ${isKecOpen ? 'Tutup Rincian ▴' : 'Rincian ▾'}
             </button>
           </div>
-          <div class="suara-kec-body ${isOpen ? 'open' : ''}" id="suaraGrpBody-${g.key}">
-            ${g.items.map(renderKartuSuara).join('')}
+          <div class="suara-kec-body ${isKecOpen ? 'open' : ''}" id="suaraKecBody-${k.key}">
+            ${desaList.map(renderKelompokDesaSuara).join('')}
           </div>
         </div>
       `;
     }).join('');
 
+    // Toggle Rincian Kecamatan
     listEl.querySelectorAll('[data-toggle-suara-kec]').forEach(btn => {
       btn.addEventListener('click', () => {
         const key = String(btn.dataset.toggleSuaraKec);
-        const bodyEl = document.getElementById(`suaraGrpBody-${key}`);
-        const cardEl = document.getElementById(`suaraGrpCard-${key}`);
+        const bodyEl = document.getElementById(`suaraKecBody-${key}`);
+        const cardEl = document.getElementById(`suaraKecCard-${key}`);
         if (!bodyEl) return;
 
         const akanBuka = !bodyEl.classList.contains('open');
@@ -523,6 +617,25 @@ export async function render(container, profil) {
       });
     });
 
+    // Toggle Rincian TPS per Desa
+    listEl.querySelectorAll('[data-toggle-suara-desa]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const key = String(btn.dataset.toggleSuaraDesa);
+        const bodyEl = document.getElementById(`suaraDesaBody-${key}`);
+        const cardEl = document.getElementById(`suaraDesaCard-${key}`);
+        if (!bodyEl) return;
+
+        const akanBuka = !bodyEl.classList.contains('open');
+        bodyEl.classList.toggle('open', akanBuka);
+        if (cardEl) cardEl.classList.toggle('expanded', akanBuka);
+        btn.classList.toggle('active', akanBuka);
+        btn.textContent = akanBuka ? 'Tutup Rincian ▴' : 'Rincian TPS ▾';
+
+        if (akanBuka) openedDesaSuaraIds.add(key);
+        else openedDesaSuaraIds.delete(key);
+      });
+    });
+
     if (canManage) {
       listEl.querySelectorAll('.btn-edit-suara').forEach(btn => {
         btn.addEventListener('click', async () => {
@@ -532,6 +645,7 @@ export async function render(container, profil) {
           }
           tpsEl.value = btn.dataset.tps;
           if (btn.dataset.kec) openedKecSuaraIds.add(`kec-${btn.dataset.kec}`);
+          if (btn.dataset.desa) openedDesaSuaraIds.add(`desa-${btn.dataset.desa}`);
           await isiFormJikaSudahAda();
           bukaModalSuara();
         });
@@ -549,6 +663,7 @@ export async function render(container, profil) {
           if (upErr) return showMsg(`Gagal mengubah status kunci: ${upErr.message}`, true);
 
           if (btn.dataset.kec) openedKecSuaraIds.add(`kec-${btn.dataset.kec}`);
+          if (btn.dataset.desa) openedDesaSuaraIds.add(`desa-${btn.dataset.desa}`);
 
           showMsg(kunciBaru
             ? 'Laporan suara TPS berhasil dikunci kembali.'
@@ -628,6 +743,7 @@ export async function render(container, profil) {
 
     const desaObj = daftarDesa.find(d => d.id === desa_id);
     if (desaObj?.kecamatan_id) openedKecSuaraIds.add(`kec-${desaObj.kecamatan_id}`);
+    if (desa_id) openedDesaSuaraIds.add(`desa-${desa_id}`);
 
     tutupModalSuara();
     showMsg(`Hasil suara TPS berhasil disimpan (${suara_calon.toLocaleString('id-ID')} suara) dan otomatis dikunci.`);
