@@ -33,23 +33,55 @@ export async function render(container) {
         border: 1px solid #cbd5e1;
         border-radius: 12px;
         padding: 12px;
-        margin-bottom: 14px;
+        margin-bottom: 12px;
+        transition: border-color 0.2s ease, box-shadow 0.2s ease;
+      }
+      .tim-group.expanded {
+        border-color: #60a5fa;
+        box-shadow: 0 4px 14px rgba(37, 99, 235, 0.08);
       }
       .tim-group-head {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        padding-bottom: 8px;
-        margin-bottom: 8px;
-        border-bottom: 1px solid #e2e8f0;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+      .tim-group-title {
         font-size: 13px;
         font-weight: 800;
         color: #1e3a8a;
         text-transform: uppercase;
       }
+      .tim-group-body {
+        display: none;
+        margin-top: 10px;
+        padding-top: 10px;
+        border-top: 1px solid #e2e8f0;
+      }
+      .tim-group-body.open {
+        display: block;
+      }
+      .btn-rincian-akun {
+        padding: 5px 9px;
+        font-size: 11px;
+        font-weight: 700;
+        border-radius: 6px;
+        border: 1px solid #bfdbfe;
+        background: #eff6ff;
+        color: #1e3a8a;
+        cursor: pointer;
+      }
+      .btn-rincian-akun.active {
+        background: #1e3a8a;
+        border-color: #1e3a8a;
+        color: #ffffff;
+      }
+
+      /* Kartu anggota dengan garis biru saat rincian dibuka */
       .tim-item {
         background: #f8fafc;
-        border: 1px solid #e2e8f0;
+        border: 1.5px solid #e2e8f0;
         border-radius: 10px;
         padding: 10px 12px;
         margin-top: 8px;
@@ -57,7 +89,17 @@ export async function render(container) {
         justify-content: space-between;
         align-items: flex-start;
         gap: 10px;
+        transition: border-color 0.25s ease, box-shadow 0.25s ease, background-color 0.25s ease;
       }
+      .tim-item:first-child {
+        margin-top: 0;
+      }
+      .tim-group-body.open .tim-item {
+        background: #ffffff;
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.14), 0 0 10px rgba(37, 99, 235, 0.16);
+      }
+
       .email-pill {
         display: inline-block;
         margin-top: 4px;
@@ -237,6 +279,9 @@ export async function render(container) {
     msgEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   };
 
+  // Menyimpan ID grup yang sedang dibuka rinciannya
+  const openedGroupIds = new Set();
+
   const modalAkun = document.getElementById('modalBuatAkun');
   const bukaModalAkun = () => {
     modalAkun.classList.add('open');
@@ -364,6 +409,27 @@ export async function render(container) {
     `;
   }
 
+  function renderKelompokAkun(groupKey, judul, anggotaList, extraStyle = '', titleColor = '') {
+    if (!anggotaList || anggotaList.length === 0) return '';
+    const isOpen = openedGroupIds.has(groupKey);
+
+    return `
+      <div class="tim-group ${isOpen ? 'expanded' : ''}" id="grpCard-${groupKey}" style="${extraStyle}">
+        <div class="tim-group-head">
+          <div class="tim-group-title" style="${titleColor ? 'color:' + titleColor + ';' : ''}">
+            ${judul} (${anggotaList.length} Anggota)
+          </div>
+          <button type="button" class="btn-rincian-akun ${isOpen ? 'active' : ''}" data-toggle-akun="${groupKey}">
+            ${isOpen ? 'Tutup Rincian ▴' : 'Rincian ▾'}
+          </button>
+        </div>
+        <div class="tim-group-body ${isOpen ? 'open' : ''}" id="grpBody-${groupKey}">
+          ${anggotaList.map(renderKartuAnggota).join('')}
+        </div>
+      </div>
+    `;
+  }
+
   function urutkanAnggota(list) {
     return [...list].sort((a, b) => {
       const desaA = a.desa?.nama_desa || '';
@@ -408,51 +474,57 @@ export async function render(container) {
 
     let html = '';
 
+    // 1. Kelompok Super Admin Pusat
     const superAdmins = hasil.filter(u => u.role === 'super_admin');
-    if (superAdmins.length > 0) {
-      html += `
-        <div class="tim-group" style="border-color:#93c5fd; background:#f8faff;">
-          <div class="tim-group-head">
-            <span>⭐ Super Admin Pusat (${superAdmins.length})</span>
-          </div>
-          ${superAdmins.map(renderKartuAnggota).join('')}
-        </div>
-      `;
-    }
+    html += renderKelompokAkun(
+      'super',
+      '⭐ Super Admin Pusat',
+      superAdmins,
+      'border-color:#93c5fd; background:#f8faff;'
+    );
 
+    // 2. Kelompokkan per Kecamatan
     semuaKecamatan.forEach(k => {
       const anggotaKec = urutkanAnggota(
         hasil.filter(u => u.role !== 'super_admin' && u.desa?.kecamatan_id === k.id)
       );
-      if (anggotaKec.length > 0) {
-        html += `
-          <div class="tim-group">
-            <div class="tim-group-head">
-              <span>📍 ${k.nama_kecamatan} (${anggotaKec.length} Anggota)</span>
-            </div>
-            ${anggotaKec.map(renderKartuAnggota).join('')}
-          </div>
-        `;
-      }
+      html += renderKelompokAkun(`kec-${k.id}`, `📍 ${k.nama_kecamatan}`, anggotaKec);
     });
 
+    // 3. Kelompok Anggota yang desanya belum terhubung ke kecamatan
     const tanpaKec = urutkanAnggota(
       hasil.filter(u => u.role !== 'super_admin' && !u.desa?.kecamatan_id)
     );
-    if (tanpaKec.length > 0) {
-      html += `
-        <div class="tim-group" style="border-color:#fcd34d;">
-          <div class="tim-group-head" style="color:#d97706;">
-            <span>⚠️ Wilayah Belum Masuk Kecamatan (${tanpaKec.length})</span>
-          </div>
-          ${tanpaKec.map(renderKartuAnggota).join('')}
-        </div>
-      `;
-    }
+    html += renderKelompokAkun(
+      'tanpa-kec',
+      '⚠️ Wilayah Belum Masuk Kecamatan',
+      tanpaKec,
+      'border-color:#fcd34d;',
+      '#d97706'
+    );
 
     listEl.innerHTML = html;
 
-    listEl.querySelectorAll('.btn-mini').forEach(btn => {
+    // Tombol Rincian / Tutup Rincian per kelompok
+    listEl.querySelectorAll('[data-toggle-akun]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const grpKey = String(btn.dataset.toggleAkun);
+        const bodyEl = document.getElementById(`grpBody-${grpKey}`);
+        const cardEl = document.getElementById(`grpCard-${grpKey}`);
+        if (!bodyEl) return;
+
+        const akanBuka = !bodyEl.classList.contains('open');
+        bodyEl.classList.toggle('open', akanBuka);
+        if (cardEl) cardEl.classList.toggle('expanded', akanBuka);
+        btn.classList.toggle('active', akanBuka);
+        btn.textContent = akanBuka ? 'Tutup Rincian ▴' : 'Rincian ▾';
+
+        if (akanBuka) openedGroupIds.add(grpKey);
+        else openedGroupIds.delete(grpKey);
+      });
+    });
+
+    listEl.querySelectorAll('.btn-mini[data-id]').forEach(btn => {
       btn.addEventListener('click', async () => {
         const id = btn.dataset.id;
         const statusBaru = btn.dataset.aktif !== 'true';
@@ -502,6 +574,13 @@ export async function render(container) {
         aktif: true
       });
       if (dbErr) throw dbErr;
+
+      if (role === 'super_admin') {
+        openedGroupIds.add('super');
+      } else {
+        const desaObj = semuaDesa.find(d => d.id === desa_id);
+        if (desaObj?.kecamatan_id) openedGroupIds.add(`kec-${desaObj.kecamatan_id}`);
+      }
 
       e.target.reset();
       roleEl.dispatchEvent(new Event('change'));
