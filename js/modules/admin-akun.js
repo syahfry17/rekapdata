@@ -12,6 +12,22 @@ const authCreator = createClient(supabase.supabaseUrl, supabase.supabaseKey, {
 export async function render(container) {
   container.innerHTML = `
     <style>
+      .btn-open-akun {
+        width: 100%;
+        padding: 12px 14px;
+        background: #1e3a8a;
+        color: #ffffff;
+        border: none;
+        border-radius: 12px;
+        font-size: 14px;
+        font-weight: 700;
+        cursor: pointer;
+        margin-bottom: 14px;
+        box-shadow: 0 2px 6px rgba(30, 58, 138, 0.2);
+      }
+      .btn-open-akun:active {
+        transform: scale(0.99);
+      }
       .tim-group {
         background: #ffffff;
         border: 1px solid #cbd5e1;
@@ -55,64 +71,91 @@ export async function render(container) {
         font-weight: 600;
         word-break: break-all;
       }
+
+      /* Gaya Modal Pop-up Akun */
+      .akun-modal-bg {
+        position: fixed;
+        inset: 0;
+        background: rgba(15, 23, 42, 0.55);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        padding: 14px;
+        z-index: 999;
+      }
+      .akun-modal-bg.open {
+        display: flex;
+      }
+      .akun-modal-box {
+        width: 100%;
+        max-width: 440px;
+        max-height: 88vh;
+        overflow-y: auto;
+        background: #ffffff;
+        border-radius: 18px;
+        padding: 20px;
+        box-shadow: 0 12px 32px rgba(15, 23, 42, 0.25);
+        animation: popAkun 0.16s ease-out;
+      }
+      @keyframes popAkun {
+        from { transform: scale(0.95); opacity: 0; }
+        to { transform: scale(1); opacity: 1; }
+      }
+      .akun-modal-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 14px;
+      }
+      .akun-modal-head h3 {
+        font-size: 17px;
+        font-weight: 700;
+        color: #0f172a;
+      }
+      .akun-modal-close {
+        width: 34px;
+        height: 34px;
+        border-radius: 50%;
+        border: none;
+        background: #f1f5f9;
+        color: #334155;
+        font-size: 18px;
+        font-weight: 700;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .akun-btn-cancel {
+        width: 100%;
+        padding: 11px;
+        background: #e2e8f0;
+        color: #334155;
+        font-size: 14px;
+        font-weight: 700;
+        border: none;
+        border-radius: 10px;
+        cursor: pointer;
+        margin-top: 6px;
+        margin-bottom: 8px;
+      }
+      .akun-btn-save {
+        width: 100%;
+        padding: 12px;
+        background: #2563eb;
+        color: #ffffff;
+        font-size: 14px;
+        font-weight: 700;
+        border: none;
+        border-radius: 10px;
+        cursor: pointer;
+        letter-spacing: 0.4px;
+      }
     </style>
 
     <div id="msgAkun" class="msg"></div>
 
-    <div class="card">
-      <h2>Buat Akun Tim Baru</h2>
-      <form id="formAkun">
-        <div class="form-grid">
-          <div class="form-group">
-            <label>Nama Lengkap Anggota</label>
-            <input type="text" id="akunNama" placeholder="Contoh: Admin Kampung Padang" required />
-          </div>
-          <div class="form-group">
-            <label>No. HP / WhatsApp</label>
-            <input type="tel" id="akunHp" placeholder="0812..." />
-          </div>
-        </div>
-
-        <div class="form-group">
-          <label>Jabatan / Role</label>
-          <select id="akunRole" required>
-            <option value="admin_desa">Admin Desa (Mengurus 1 Desa)</option>
-            <option value="pengepul">Pengepul KTP</option>
-            <option value="saksi">Saksi TPS</option>
-            <option value="super_admin">Super Admin (Semua Wilayah)</option>
-          </select>
-        </div>
-
-        <div class="form-grid" id="wrapWilayah">
-          <div class="form-group">
-            <label>Pilih Kecamatan</label>
-            <select id="akunKecamatan"></select>
-          </div>
-          <div class="form-group">
-            <label>Tugas di Desa</label>
-            <select id="akunDesa"></select>
-          </div>
-        </div>
-
-        <div class="form-group" id="wrapTps" style="display:none;">
-          <label>Tugas di TPS (Khusus Saksi)</label>
-          <select id="akunTps"></select>
-        </div>
-
-        <div class="form-grid">
-          <div class="form-group">
-            <label>Email Login</label>
-            <input type="email" id="akunEmail" placeholder="contoh: kampungpadang@pemilu.id" required />
-          </div>
-          <div class="form-group">
-            <label>Kata Sandi (Min. 6 karakter)</label>
-            <input type="text" id="akunPass" placeholder="Contoh: desa2026" minlength="6" required />
-          </div>
-        </div>
-
-        <button type="submit" class="btn-primary" id="btnBuatAkun">Buat Akun Sekarang</button>
-      </form>
-    </div>
+    <button type="button" class="btn-open-akun" id="openModalAkun">+ Buat Akun Tim Baru</button>
 
     <div class="card">
       <h2>Daftar Akun Tim (<span id="jumlahAkun">0</span>)</h2>
@@ -124,6 +167,67 @@ export async function render(container) {
       </div>
       <div id="listAkun">Memuat daftar akun...</div>
     </div>
+
+    <!-- POPUP BUAT AKUN TIM -->
+    <div class="akun-modal-bg" id="modalBuatAkun">
+      <div class="akun-modal-box">
+        <div class="akun-modal-head">
+          <h3>Buat Akun Tim Baru</h3>
+          <button type="button" class="akun-modal-close" id="closeModalAkun">×</button>
+        </div>
+
+        <form id="formAkun">
+          <div class="form-group">
+            <label>Nama Lengkap Anggota</label>
+            <input type="text" id="akunNama" placeholder="Contoh: Admin Kampung Padang" required />
+          </div>
+
+          <div class="form-group">
+            <label>No. HP / WhatsApp</label>
+            <input type="tel" id="akunHp" placeholder="0812..." />
+          </div>
+
+          <div class="form-group">
+            <label>Jabatan / Role</label>
+            <select id="akunRole" required>
+              <option value="admin_desa">Admin Desa (Mengurus 1 Desa)</option>
+              <option value="pengepul">Pengepul KTP</option>
+              <option value="saksi">Saksi TPS</option>
+              <option value="super_admin">Super Admin (Semua Wilayah)</option>
+            </select>
+          </div>
+
+          <div class="form-grid" id="wrapWilayah">
+            <div class="form-group">
+              <label>Pilih Kecamatan</label>
+              <select id="akunKecamatan"></select>
+            </div>
+            <div class="form-group">
+              <label>Tugas di Desa</label>
+              <select id="akunDesa"></select>
+            </div>
+          </div>
+
+          <div class="form-group" id="wrapTps" style="display:none;">
+            <label>Tugas di TPS (Khusus Saksi)</label>
+            <select id="akunTps"></select>
+          </div>
+
+          <div class="form-group">
+            <label>Email Login</label>
+            <input type="email" id="akunEmail" placeholder="contoh: kampungpadang@pemilu.id" required />
+          </div>
+
+          <div class="form-group">
+            <label>Kata Sandi (Min. 6 karakter)</label>
+            <input type="text" id="akunPass" placeholder="Contoh: desa2026" minlength="6" required />
+          </div>
+
+          <button type="button" class="akun-btn-cancel" id="batalModalAkun">Batal</button>
+          <button type="submit" class="akun-btn-save" id="btnBuatAkun">BUAT AKUN SEKARANG</button>
+        </form>
+      </div>
+    </div>
   `;
 
   const msgEl = document.getElementById('msgAkun');
@@ -132,6 +236,20 @@ export async function render(container) {
     msgEl.className = `msg ${isErr ? 'err' : 'ok'}`;
     msgEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   };
+
+  const modalAkun = document.getElementById('modalBuatAkun');
+  const bukaModalAkun = () => {
+    modalAkun.classList.add('open');
+    document.getElementById('akunNama').focus();
+  };
+  const tutupModalAkun = () => modalAkun.classList.remove('open');
+
+  document.getElementById('openModalAkun').addEventListener('click', bukaModalAkun);
+  document.getElementById('closeModalAkun').addEventListener('click', tutupModalAkun);
+  document.getElementById('batalModalAkun').addEventListener('click', tutupModalAkun);
+  modalAkun.addEventListener('click', (e) => {
+    if (e.target === modalAkun) tutupModalAkun();
+  });
 
   let semuaKecamatan = [];
   let semuaDesa = [];
@@ -290,7 +408,6 @@ export async function render(container) {
 
     let html = '';
 
-    // 1. Kelompok Super Admin Pusat
     const superAdmins = hasil.filter(u => u.role === 'super_admin');
     if (superAdmins.length > 0) {
       html += `
@@ -303,7 +420,6 @@ export async function render(container) {
       `;
     }
 
-    // 2. Kelompokkan per Kecamatan
     semuaKecamatan.forEach(k => {
       const anggotaKec = urutkanAnggota(
         hasil.filter(u => u.role !== 'super_admin' && u.desa?.kecamatan_id === k.id)
@@ -320,7 +436,6 @@ export async function render(container) {
       }
     });
 
-    // 3. Kelompok Anggota yang desanya belum terhubung ke kecamatan
     const tanpaKec = urutkanAnggota(
       hasil.filter(u => u.role !== 'super_admin' && !u.desa?.kecamatan_id)
     );
@@ -354,7 +469,7 @@ export async function render(container) {
     e.preventDefault();
     const btn = document.getElementById('btnBuatAkun');
     btn.disabled = true;
-    btn.textContent = 'Mendaftarkan akun...';
+    btn.textContent = 'MENDAFTARKAN AKUN...';
 
     const nama_lengkap = document.getElementById('akunNama').value.trim();
     const no_hp = document.getElementById('akunHp').value.trim();
@@ -390,13 +505,15 @@ export async function render(container) {
 
       e.target.reset();
       roleEl.dispatchEvent(new Event('change'));
+      tutupModalAkun();
       showMsg(`Akun ${nama_lengkap} (${email} | Sandi: ${password}) berhasil dibuat!`);
       await muatData();
     } catch (err) {
       showMsg(`Gagal: ${err.message}`, true);
+      tutupModalAkun();
     } finally {
       btn.disabled = false;
-      btn.textContent = 'Buat Akun Sekarang';
+      btn.textContent = 'BUAT AKUN SEKARANG';
     }
   });
 
