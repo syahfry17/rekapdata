@@ -30,16 +30,13 @@ export async function render(container, profil) {
         border: 1px solid #cbd5e1;
         border-radius: 12px;
         padding: 12px;
-        margin-bottom: 12px;
+        margin-bottom: 10px;
       }
       .kec-header {
         display: flex;
         justify-content: space-between;
         align-items: center;
         gap: 8px;
-        padding-bottom: 8px;
-        border-bottom: 1px solid #e2e8f0;
-        margin-bottom: 8px;
         flex-wrap: wrap;
       }
       .kec-title {
@@ -48,12 +45,30 @@ export async function render(container, profil) {
         color: #1e3a8a;
         text-transform: uppercase;
       }
+      .kec-sub {
+        font-size: 11px;
+        color: #64748b;
+        margin-top: 2px;
+      }
+      .kec-body {
+        display: none;
+        margin-top: 10px;
+        padding-top: 10px;
+        border-top: 1px solid #e2e8f0;
+      }
+      .kec-body.open {
+        display: block;
+      }
+
       .desa-box {
         background: #f8fafc;
         border: 1px solid #e2e8f0;
         border-radius: 10px;
         padding: 10px;
         margin-top: 8px;
+      }
+      .desa-box:first-child {
+        margin-top: 0;
       }
       .desa-head {
         display: flex;
@@ -94,6 +109,16 @@ export async function render(container, profil) {
         background: #fff;
         color: #1e3a8a;
         cursor: pointer;
+      }
+      .btn-xs.rincian {
+        background: #eff6ff;
+        border-color: #bfdbfe;
+        color: #1e3a8a;
+      }
+      .btn-xs.rincian.active {
+        background: #1e3a8a;
+        border-color: #1e3a8a;
+        color: #ffffff;
       }
       .btn-xs.danger {
         color: #dc2626;
@@ -309,6 +334,9 @@ export async function render(container, profil) {
     msgEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   };
 
+  // Menyimpan ID kecamatan yang sedang dibuka rinciannya agar tidak tertutup saat muat ulang
+  const openedKecIds = new Set();
+
   const bukaModal = (id) => document.getElementById(id).classList.add('open');
   const tutupModal = (id) => document.getElementById(id).classList.remove('open');
 
@@ -467,18 +495,29 @@ export async function render(container, profil) {
       let html = '';
       kecList.forEach(k => {
         const desaDiKec = desaList.filter(d => d.kecamatan_id === k.id);
+        const totalTps = desaDiKec.reduce((acc, d) => acc + ((d.tps && d.tps.length) || 0), 0);
+        const isOpen = openedKecIds.has(String(k.id));
+
         html += `
           <div class="kec-card">
             <div class="kec-header">
-              <div class="kec-title">📍 ${k.nama_kecamatan} (${desaDiKec.length} Desa)</div>
-              <div style="display:flex; gap:5px;">
+              <div>
+                <div class="kec-title">📍 ${k.nama_kecamatan} (${desaDiKec.length} Desa)</div>
+                <div class="kec-sub">${totalTps} TPS terdaftar</div>
+              </div>
+              <div style="display:flex; gap:5px; flex-wrap:wrap;">
+                <button type="button" class="btn-xs rincian ${isOpen ? 'active' : ''}" data-toggle-rincian="${k.id}">
+                  ${isOpen ? 'Tutup Rincian ▴' : 'Rincian ▾'}
+                </button>
                 <button type="button" class="btn-xs" data-quick-desa="${k.id}">+ Desa</button>
                 <button type="button" class="btn-xs danger" data-hapus-kec="${k.id}" data-nama="${k.nama_kecamatan}">Hapus</button>
               </div>
             </div>
-            ${desaDiKec.length > 0
-              ? desaDiKec.map(renderKartuDesa).join('')
-              : `<p style="font-size:12px; color:#64748b;">Belum ada desa di kecamatan ini.</p>`}
+            <div class="kec-body ${isOpen ? 'open' : ''}" id="rincianKec-${k.id}">
+              ${desaDiKec.length > 0
+                ? desaDiKec.map(renderKartuDesa).join('')
+                : `<p style="font-size:12px; color:#64748b;">Belum ada desa di kecamatan ini.</p>`}
+            </div>
           </div>
         `;
       });
@@ -490,12 +529,31 @@ export async function render(container, profil) {
             <div class="kec-header">
               <div class="kec-title" style="color:#d97706;">⚠️ Belum Masuk Kecamatan (${desaTanpaKec.length})</div>
             </div>
-            ${desaTanpaKec.map(renderKartuDesa).join('')}
+            <div class="kec-body open">
+              ${desaTanpaKec.map(renderKartuDesa).join('')}
+            </div>
           </div>
         `;
       }
       listEl.innerHTML = html;
     }
+
+    // Tombol Rincian / Tutup Rincian per Kecamatan
+    listEl.querySelectorAll('[data-toggle-rincian]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const kecId = String(btn.dataset.toggleRincian);
+        const bodyEl = document.getElementById(`rincianKec-${kecId}`);
+        if (!bodyEl) return;
+
+        const akanBuka = !bodyEl.classList.contains('open');
+        bodyEl.classList.toggle('open', akanBuka);
+        btn.classList.toggle('active', akanBuka);
+        btn.textContent = akanBuka ? 'Tutup Rincian ▴' : 'Rincian ▾';
+
+        if (akanBuka) openedKecIds.add(kecId);
+        else openedKecIds.delete(kecId);
+      });
+    });
 
     // Klik tombol TPS untuk buka pop-up detail
     listEl.querySelectorAll('[data-detail-tps]').forEach(btn => {
@@ -536,6 +594,7 @@ export async function render(container, profil) {
           .eq('id', btn.dataset.hapusKec);
         if (delErr) return showMsg(`Gagal menghapus kecamatan: ${delErr.message}`, true);
         if (count === 0) return showMsg('Izin ditolak oleh server.', true);
+        openedKecIds.delete(String(btn.dataset.hapusKec));
         showMsg(`${btn.dataset.nama} berhasil dihapus.`);
         await muatData();
       });
@@ -567,6 +626,7 @@ export async function render(container, profil) {
         const { error: upErr } = await supabase.from('desa').update({ kecamatan_id: kecId }).eq('id', desaId);
         if (upErr) return showMsg(`Gagal memperbarui: ${upErr.message}`, true);
 
+        openedKecIds.add(String(kecId));
         showMsg('Desa berhasil dihubungkan ke Kecamatan.');
         await muatData();
       });
@@ -600,6 +660,7 @@ export async function render(container, profil) {
       document.getElementById('namaDesa').value = '';
       document.getElementById('targetKtp').value = '';
       tutupModal('modalDesa');
+      openedKecIds.add(String(kecamatan_id));
       showMsg(`Desa "${nama_desa}" berhasil ditambahkan.`);
       await muatData();
     });
@@ -619,11 +680,12 @@ export async function render(container, profil) {
 
     document.getElementById('nomorTps').value = '';
     tutupModal('modalTps');
+    const desaTarget = desaList.find(d => d.id === desa_id);
+    if (desaTarget?.kecamatan_id) openedKecIds.add(String(desaTarget.kecamatan_id));
     showMsg(`TPS ${nomor_tps} berhasil ditambahkan.`);
     await muatData();
   });
 
-  // Simpan perubahan nomor TPS dari pop-up Detail TPS
   document.getElementById('formEditTps').addEventListener('submit', async (e) => {
     e.preventDefault();
     const tpsId = parseInt(document.getElementById('editTpsId').value, 10);
@@ -638,7 +700,6 @@ export async function render(container, profil) {
     await muatData();
   });
 
-  // Hapus TPS dari pop-up Detail TPS
   document.getElementById('btnHapusDetailTps').addEventListener('click', async () => {
     const tpsId = parseInt(document.getElementById('editTpsId').value, 10);
     const nomor = document.getElementById('editNomorTps').value;
