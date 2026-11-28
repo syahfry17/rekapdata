@@ -140,6 +140,15 @@
       font-weight: 800;
     }
 
+    .chart-sub-caption {
+      text-align: center;
+      font-size: 12px;
+      color: #475569;
+      font-weight: 600;
+      margin-top: -8px;
+      margin-bottom: 12px;
+    }
+
     .filter-kec-select {
       width: 100%;
       max-width: 320px;
@@ -292,8 +301,8 @@
       <div class="stat-card">
         <h4>SUARA MASUK</h4>
         <div class="angka" id="statSuara">0</div>
-        <div class="keterangan" id="ketTpsMasuk">🗳️ 0 / 0 TPS</div>
-        <div class="sub-info" id="subSuaraTidakSah">Tidak sah: 0</div>
+        <div class="keterangan" id="ketSuaraWilayah">🗳️ Total Semua Suara</div>
+        <div class="sub-info" id="subSuaraDetail">0 / 0 TPS • Tidak sah: 0</div>
       </div>
 
       <div class="stat-card">
@@ -309,14 +318,15 @@
       </div>
     </div>
 
-    <!-- GRAFIK DONUT PROGRESS -->
+    <!-- GRAFIK DONUT: TARGET KTP VS SUARA MASUK -->
     <div class="chart-container">
-      <h3>📊 PROGRESS TARGET KTP</h3>
+      <h3>📊 TARGET KTP VS SUARA MASUK</h3>
+      <div class="chart-sub-caption" id="donutSubCaption">0 dari 0 Target</div>
       <div class="donut-wrap">
         <canvas id="circleChart"></canvas>
         <div class="donut-center-text">
           <div class="persen-besar" id="donutPersenText">0%</div>
-          <div class="persen-label">Tercapai</div>
+          <div class="persen-label">Suara Masuk</div>
         </div>
       </div>
     </div>
@@ -336,7 +346,7 @@
 
     <!-- PERINGKAT 5 DESA TERATAS -->
     <div class="chart-container">
-      <h3>🏆 PERINGKAT 5 DESA TERATAS (PROGRES KTP & SUARA)</h3>
+      <h3>🏆 PERINGKAT 5 DESA TERATAS (CAPAIAN SUARA & KTP)</h3>
       <div id="topDesaList" class="top-desa-list">
         <p style="font-size:13px; color:#64748b; text-align:center;">Memuat peringkat desa...</p>
       </div>
@@ -350,8 +360,12 @@
 
     let donutChart = null;
     let barChart = null;
+
     let slidesTps = [];
-    let slideIndex = 0;
+    let slideTpsIndex = 0;
+
+    let slidesSuara = [];
+    let slideSuaraIndex = 0;
 
     let cacheKec = [];
     let cacheDesa = [];
@@ -365,24 +379,41 @@
       const ketEl = document.getElementById('ketTotalTps');
       if (!angkaEl || !ketEl || slidesTps.length === 0) return;
 
-      const aktif = slidesTps[slideIndex % slidesTps.length];
+      const aktif = slidesTps[slideTpsIndex % slidesTps.length];
       angkaEl.textContent = Number(aktif.jumlah || 0).toLocaleString('id-ID');
       ketEl.textContent = aktif.label;
     }
 
+    function tampilkanSlideSuara() {
+      const angkaEl = document.getElementById('statSuara');
+      const ketEl = document.getElementById('ketSuaraWilayah');
+      const subEl = document.getElementById('subSuaraDetail');
+      if (!angkaEl || !ketEl || !subEl || slidesSuara.length === 0) return;
+
+      const aktif = slidesSuara[slideSuaraIndex % slidesSuara.length];
+      angkaEl.textContent = Number(aktif.suara || 0).toLocaleString('id-ID');
+      ketEl.textContent = aktif.label;
+      subEl.textContent = aktif.sub;
+    }
+
+    // Pergantian otomatis setiap 5 detik untuk kartu Suara Masuk & TPS Terdaftar
     setInterval(() => {
+      if (slidesSuara.length > 1) {
+        slideSuaraIndex = (slideSuaraIndex + 1) % slidesSuara.length;
+        tampilkanSlideSuara();
+      }
       if (slidesTps.length > 1) {
-        slideIndex = (slideIndex + 1) % slidesTps.length;
+        slideTpsIndex = (slideTpsIndex + 1) % slidesTps.length;
         tampilkanSlideTps();
       }
-    }, 10000);
+    }, 5000);
 
     function initCharts() {
       const circleCtx = document.getElementById('circleChart').getContext('2d');
       donutChart = new Chart(circleCtx, {
         type: 'doughnut',
         data: {
-          labels: ['Tercapai ✅', 'Belum Tercapai ⏳'],
+          labels: ['Suara Masuk ✅', 'Sisa Target KTP ⏳'],
           datasets: [{
             data: [0, 100],
             backgroundColor: ['#1E4BB8', '#cbd5e1'],
@@ -542,7 +573,7 @@
           const ktp = ktpPerDesa.get(d.id) || 0;
           const suara = suaraPerDesa.get(d.id) || 0;
           const target = Number(d.target_ktp || 0);
-          const pct = target > 0 ? Math.min(100, (ktp / target) * 100) : 0;
+          const pct = target > 0 ? Math.min(100, (suara / target) * 100) : 0;
           return {
             namaDesa: d.nama_desa,
             namaKec: kecMap.get(d.kecamatan_id) || '',
@@ -553,9 +584,9 @@
           };
         })
         .sort((a, b) => {
+          if (b.suara !== a.suara) return b.suara - a.suara;
           if (b.pct !== a.pct) return b.pct - a.pct;
-          if (b.ktp !== a.ktp) return b.ktp - a.ktp;
-          return b.suara - a.suara;
+          return b.ktp - a.ktp;
         })
         .slice(0, 5);
 
@@ -577,14 +608,14 @@
                 <span class="top-desa-name">#${idx + 1} ${item.namaDesa}</span>
                 ${item.namaKec ? `<div class="top-desa-kec">${item.namaKec}</div>` : ''}
               </div>
-              <span class="top-desa-stat">${pctLabel}</span>
+              <span class="top-desa-stat">${item.suara.toLocaleString('id-ID')} Suara (${pctLabel})</span>
             </div>
             <div class="progress-track">
               <div class="progress-fill" style="width:${barWidth}%;"></div>
             </div>
             <div class="top-desa-meta">
-              <span>KTP: ${item.ktp.toLocaleString('id-ID')} / ${item.target.toLocaleString('id-ID')}</span>
-              <span>Suara: ${item.suara.toLocaleString('id-ID')}</span>
+              <span>Target KTP: ${item.target.toLocaleString('id-ID')}</span>
+              <span>KTP Terkumpul: ${item.ktp.toLocaleString('id-ID')}</span>
             </div>
           </div>
         `;
@@ -629,54 +660,99 @@
         const tpsSemua = Number(totalTps ?? tpsList.length);
         const targetKtp = cacheDesa.reduce((acc, d) => acc + Number(d.target_ktp || 0), 0);
 
-        const persenRaw = targetKtp > 0 ? (ktpMasuk / targetKtp) * 100 : 0;
-        const persenBulat = targetKtp > 0
-          ? (persenRaw > 0 && persenRaw < 1 ? 1 : Math.min(100, Math.round(persenRaw)))
+        // Persentase KTP terkumpul untuk kartu KTP
+        const persenKtpRaw = targetKtp > 0 ? (ktpMasuk / targetKtp) * 100 : 0;
+        const persenKtpBulat = targetKtp > 0
+          ? (persenKtpRaw > 0 && persenKtpRaw < 1 ? 1 : Math.min(100, Math.round(persenKtpRaw)))
           : 0;
-        const sisaPersen = Math.max(0, 100 - persenBulat);
 
+        // Perhitungan Suara Masuk vs Target KTP untuk Donat
         const totalSuara = cacheSuaraList.reduce((acc, s) => acc + Number(s.suara_calon || 0), 0);
         const totalTidakSah = cacheSuaraList.reduce((acc, s) => acc + Number(s.suara_tidak_sah || 0), 0);
         const tpsMasuk = cacheSuaraList.length;
 
-        const countPerDesa = new Map();
+        const persenSuaraRaw = targetKtp > 0 ? (totalSuara / targetKtp) * 100 : 0;
+        const persenSuaraBulat = targetKtp > 0
+          ? (persenSuaraRaw > 0 && persenSuaraRaw < 1 ? 1 : Math.min(100, Math.round(persenSuaraRaw)))
+          : 0;
+
+        const suaraTercapai = Math.min(totalSuara, targetKtp);
+        const sisaTargetSuara = Math.max(0, targetKtp - totalSuara);
+
+        // Hitung TPS & Suara per Desa untuk rotasi 5 detik
+        const tpsPerDesaMap = new Map();
         tpsList.forEach(t => {
           if (t.desa_id) {
-            countPerDesa.set(t.desa_id, (countPerDesa.get(t.desa_id) || 0) + 1);
+            tpsPerDesaMap.set(t.desa_id, (tpsPerDesaMap.get(t.desa_id) || 0) + 1);
           }
         });
 
-        const nextSlides = [
+        const suaraPerDesaMap = new Map();
+        const tpsMasukPerDesaMap = new Map();
+        cacheSuaraList.forEach(s => {
+          if (s.desa_id) {
+            suaraPerDesaMap.set(s.desa_id, (suaraPerDesaMap.get(s.desa_id) || 0) + Number(s.suara_calon || 0));
+            tpsMasukPerDesaMap.set(s.desa_id, (tpsMasukPerDesaMap.get(s.desa_id) || 0) + 1);
+          }
+        });
+
+        // Susun slide rotasi kartu TPS TERDAFTAR
+        const nextSlidesTps = [
           { jumlah: tpsSemua, label: '🗳️ Total Semua TPS' }
         ];
-
         cacheDesa.forEach(d => {
-          const jml = countPerDesa.get(d.id) || 0;
+          const jml = tpsPerDesaMap.get(d.id) || 0;
           if (jml > 0) {
-            nextSlides.push({
+            nextSlidesTps.push({
               jumlah: jml,
               label: `🏘️ ${d.nama_desa}`
             });
           }
         });
+        slidesTps = nextSlidesTps;
+        slideTpsIndex = 0;
 
-        slidesTps = nextSlides;
-        slideIndex = 0;
+        // Susun slide rotasi kartu SUARA MASUK (Total -> per Desa)
+        const nextSlidesSuara = [
+          {
+            suara: totalSuara,
+            label: '🗳️ Total Semua Suara',
+            sub: `✅ ${tpsMasuk.toLocaleString('id-ID')} / ${tpsSemua.toLocaleString('id-ID')} TPS • Tidak sah: ${totalTidakSah.toLocaleString('id-ID')}`
+          }
+        ];
+        cacheDesa.forEach(d => {
+          const jmlTpsDesa = tpsPerDesaMap.get(d.id) || 0;
+          const suaraDesa = suaraPerDesaMap.get(d.id) || 0;
+          const tpsMasukDesa = tpsMasukPerDesaMap.get(d.id) || 0;
+          if (jmlTpsDesa > 0 || suaraDesa > 0) {
+            nextSlidesSuara.push({
+              suara: suaraDesa,
+              label: `🏘️ ${d.nama_desa}`,
+              sub: `✅ ${tpsMasukDesa} / ${jmlTpsDesa} TPS masuk`
+            });
+          }
+        });
+        slidesSuara = nextSlidesSuara;
+        slideSuaraIndex = 0;
 
+        // Render 4 kartu statistik
         document.getElementById('statKtp').textContent = `${ktpMasuk.toLocaleString('id-ID')} / ${targetKtp.toLocaleString('id-ID')}`;
-        document.getElementById('ketPersenKtp').textContent = `✅ ${persenBulat}% Target`;
+        document.getElementById('ketPersenKtp').textContent = `✅ ${persenKtpBulat}% Target`;
 
-        document.getElementById('statSuara').textContent = totalSuara.toLocaleString('id-ID');
-        document.getElementById('ketTpsMasuk').textContent = `✅ ${tpsMasuk.toLocaleString('id-ID')} / ${tpsSemua.toLocaleString('id-ID')} TPS`;
-        document.getElementById('subSuaraTidakSah').textContent = `Tidak sah: ${totalTidakSah.toLocaleString('id-ID')}`;
+        tampilkanSlideSuara();
 
         document.getElementById('statTarget').textContent = targetKtp.toLocaleString('id-ID');
         tampilkanSlideTps();
 
-        document.getElementById('donutPersenText').textContent = `${persenBulat}%`;
+        // Update Donat: Target KTP vs Suara Masuk (tanpa suara tidak sah)
+        document.getElementById('donutPersenText').textContent = `${persenSuaraBulat}%`;
+        document.getElementById('donutSubCaption').textContent =
+          `${totalSuara.toLocaleString('id-ID')} Suara dari ${targetKtp.toLocaleString('id-ID')} Target KTP`;
 
         if (donutChart) {
-          donutChart.data.datasets[0].data = targetKtp > 0 ? [persenBulat, sisaPersen] : [0, 100];
+          donutChart.data.datasets[0].data = targetKtp > 0
+            ? [suaraTercapai, sisaTargetSuara]
+            : [totalSuara, totalSuara > 0 ? 0 : 100];
           donutChart.update();
         }
 
