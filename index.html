@@ -180,7 +180,7 @@
       <div class="stat-card">
         <h4>TPS TERDAFTAR</h4>
         <div class="angka" id="statTotalTps">0</div>
-        <div class="keterangan">🗳️ Jumlah TPS</div>
+        <div class="keterangan" id="ketTotalTps">🗳️ Jumlah TPS</div>
       </div>
     </div>
 
@@ -208,6 +208,25 @@
 
     let donutChart = null;
     let barChart = null;
+    let slidesTps = [];
+    let slideIndex = 0;
+
+    function tampilkanSlideTps() {
+      const angkaEl = document.getElementById('statTotalTps');
+      const ketEl = document.getElementById('ketTotalTps');
+      if (!angkaEl || !ketEl || slidesTps.length === 0) return;
+
+      const aktif = slidesTps[slideIndex % slidesTps.length];
+      angkaEl.textContent = Number(aktif.jumlah || 0).toLocaleString('id-ID');
+      ketEl.textContent = aktif.label;
+    }
+
+    setInterval(() => {
+      if (slidesTps.length > 1) {
+        slideIndex = (slideIndex + 1) % slidesTps.length;
+        tampilkanSlideTps();
+      }
+    }, 10000);
 
     function initCharts() {
       const circleCtx = document.getElementById('circleChart').getContext('2d');
@@ -268,13 +287,13 @@
         const [
           { data: dKec, error: errKec },
           { data: dDesa, error: errDesa },
-          { count: totalTps, error: errTps },
+          { data: dTpsRows, count: totalTps, error: errTps },
           { data: dKtpRows, count: totalKtp, error: errKtp },
           { data: dSuara, error: errSuara }
         ] = await Promise.all([
           supabase.from('kecamatan').select('id, nama_kecamatan').order('nama_kecamatan', { ascending: true }),
-          supabase.from('desa').select('id, kecamatan_id, target_ktp'),
-          supabase.from('tps').select('id', { count: 'exact' }),
+          supabase.from('desa').select('id, nama_desa, kecamatan_id, target_ktp').order('nama_desa', { ascending: true }),
+          supabase.from('tps').select('id, desa_id'),
           supabase.from('data_ktp').select('id', { count: 'exact' }),
           supabase.from('suara_tps').select('suara_calon, desa(kecamatan_id)')
         ]);
@@ -284,7 +303,8 @@
         }
 
         const ktpMasuk = Number(totalKtp ?? (dKtpRows ? dKtpRows.length : 0));
-        const tpsSemua = Number(totalTps || 0);
+        const tpsList = dTpsRows || [];
+        const tpsSemua = Number(totalTps ?? tpsList.length);
         const targetKtp = (dDesa || []).reduce((acc, d) => acc + Number(d.target_ktp || 0), 0);
 
         const persenRaw = targetKtp > 0 ? (ktpMasuk / targetKtp) * 100 : 0;
@@ -297,6 +317,31 @@
         const totalSuara = suaraList.reduce((acc, s) => acc + Number(s.suara_calon || 0), 0);
         const tpsMasuk = suaraList.length;
 
+        // Susun daftar rotasi TPS terdaftar: Total semua TPS -> per Desa (yang memiliki TPS)
+        const countPerDesa = new Map();
+        tpsList.forEach(t => {
+          if (t.desa_id) {
+            countPerDesa.set(t.desa_id, (countPerDesa.get(t.desa_id) || 0) + 1);
+          }
+        });
+
+        const nextSlides = [
+          { jumlah: tpsSemua, label: '🗳️ Total Semua TPS' }
+        ];
+
+        (dDesa || []).forEach(d => {
+          const jml = countPerDesa.get(d.id) || 0;
+          if (jml > 0) {
+            nextSlides.push({
+              jumlah: jml,
+              label: `🏘️ ${d.nama_desa}`
+            });
+          }
+        });
+
+        slidesTps = nextSlides;
+        slideIndex = 0;
+
         document.getElementById('statKtp').textContent = `${ktpMasuk.toLocaleString('id-ID')} / ${targetKtp.toLocaleString('id-ID')}`;
         document.getElementById('ketPersenKtp').textContent = `✅ ${persenBulat}% Target`;
 
@@ -304,7 +349,7 @@
         document.getElementById('ketTpsMasuk').textContent = `✅ ${tpsMasuk.toLocaleString('id-ID')} / ${tpsSemua.toLocaleString('id-ID')} TPS`;
 
         document.getElementById('statTarget').textContent = targetKtp.toLocaleString('id-ID');
-        document.getElementById('statTotalTps').textContent = tpsSemua.toLocaleString('id-ID');
+        tampilkanSlideTps();
 
         if (donutChart) {
           donutChart.data.datasets[0].data = targetKtp > 0 ? [persenBulat, sisaPersen] : [0, 100];
