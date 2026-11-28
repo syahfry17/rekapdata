@@ -364,13 +364,19 @@
     import { supabase } from './js/config.js';
 
     const btnPanelAdmin = document.getElementById('btnPanelAdmin');
-    btnPanelAdmin.addEventListener('click', () => {
-      try {
-        const targetUrl = new URL('./admin.html', window.location.href).href;
-        window.location.assign(targetUrl);
-      } catch (err) {
-        window.location.href = 'admin.html';
+    btnPanelAdmin.addEventListener('click', async () => {
+      const kandidatFile = ['./admin.html', './login.html', './panel.html'];
+      for (const relPath of kandidatFile) {
+        try {
+          const url = new URL(relPath, window.location.href).href;
+          const res = await fetch(url, { method: 'HEAD' });
+          if (res.ok) {
+            window.location.assign(url);
+            return;
+          }
+        } catch (_) {}
       }
+      window.location.assign(new URL('./admin.html', window.location.href).href);
     });
 
     let donutChart = null;
@@ -439,7 +445,6 @@
       subEl.textContent = aktif.sub;
     }
 
-    // Pergantian otomatis setiap 5 detik untuk semua kartu statistik
     setInterval(() => {
       if (slidesTim.length > 1) {
         slideTimIndex = (slideTimIndex + 1) % slidesTim.length;
@@ -615,7 +620,6 @@
         }
       });
 
-      // Deduplikasi berdasarkan ID desa agar tidak ada nama desa muncul ganda
       const uniqueDesaMap = new Map();
       cacheDesa.forEach(d => {
         if (!uniqueDesaMap.has(d.id)) {
@@ -710,7 +714,6 @@
         cacheKtpRows = dKtpRows || [];
         cacheSuaraList = dSuara || [];
 
-        // Hitung semua tim lapangan (admin desa, pengepul KTP, saksi; jika role kosong/berbeda tetap dihitung kecuali super_admin bila ada)
         const rawTim = errTim ? [] : (dTimRows || []);
         const timLapangan = rawTim.filter(u => u.role !== 'super_admin');
         const daftarTimAktif = timLapangan.length > 0 ? timLapangan : rawTim;
@@ -737,7 +740,6 @@
         const suaraTercapai = Math.min(totalSuara, targetKtp);
         const sisaTargetSuara = Math.max(0, targetKtp - totalSuara);
 
-        // Hitung rincian peran & jumlah tim per desa
         const jumlahAdminDesa = daftarTimAktif.filter(u => u.role === 'admin_desa').length;
         const jumlahPengepul = daftarTimAktif.filter(u => u.role === 'pengepul').length;
         const jumlahSaksi = daftarTimAktif.filter(u => u.role === 'saksi').length;
@@ -774,7 +776,6 @@
         slidesTim = nextSlidesTim;
         slideTimIndex = 0;
 
-        // Susun slide rotasi TARGET KESELURUHAN (Total Target -> Target per Desa)
         const nextSlidesTarget = [
           {
             target: targetKtp,
@@ -793,7 +794,6 @@
         slidesTarget = nextSlidesTarget;
         slideTargetIndex = 0;
 
-        // Hitung TPS & Suara per Desa untuk rotasi 5 detik
         const tpsPerDesaMap = new Map();
         tpsList.forEach(t => {
           if (t.desa_id) {
@@ -847,13 +847,11 @@
         slidesSuara = nextSlidesSuara;
         slideSuaraIndex = 0;
 
-        // Render 4 kartu statistik
         tampilkanSlideTim();
         tampilkanSlideSuara();
         tampilkanSlideTarget();
         tampilkanSlideTps();
 
-        // Update Donat: Target KTP vs Suara Masuk
         document.getElementById('donutPersenText').textContent = `${persenSuaraBulat}%`;
         document.getElementById('donutSubCaption').textContent =
           `${totalSuara.toLocaleString('id-ID')} Suara dari ${targetKtp.toLocaleString('id-ID')} Target KTP`;
