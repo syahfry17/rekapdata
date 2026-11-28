@@ -118,12 +118,38 @@
       margin-bottom: 18px;
     }
 
+    .chart-header-row {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+
     .chart-container h3 {
       color: #0B2C70;
       text-align: center;
-      margin-bottom: 14px;
       font-size: 15px;
       font-weight: 800;
+    }
+
+    .filter-kec-select {
+      width: 100%;
+      max-width: 320px;
+      padding: 9px 12px;
+      border-radius: 10px;
+      border: 1.5px solid #cbd5e1;
+      background-color: #f8fafc;
+      color: #0f172a;
+      font-size: 13px;
+      font-weight: 700;
+      outline: none;
+      cursor: pointer;
+    }
+
+    .filter-kec-select:focus {
+      border-color: #1E4BB8;
+      background-color: #ffffff;
     }
 
     .donut-wrap {
@@ -192,9 +218,14 @@
       </div>
     </div>
 
-    <!-- GRAFIK BATANG PERBANDINGAN KTP VS SUARA PER KECAMATAN -->
+    <!-- GRAFIK BATANG PERBANDINGAN KTP VS SUARA -->
     <div class="chart-container">
-      <h3>📈 KTP TERKUMPUL VS SUARA PER KECAMATAN</h3>
+      <div class="chart-header-row">
+        <h3 id="judulGrafikBatang">📈 KTP TERKUMPUL VS SUARA PER KECAMATAN</h3>
+        <select id="filterKecGrafik" class="filter-kec-select" aria-label="Filter Kecamatan Grafik">
+          <option value="">Semua Kecamatan (Rekap Kecamatan)</option>
+        </select>
+      </div>
       <div class="bar-wrap">
         <canvas id="barChart"></canvas>
       </div>
@@ -210,6 +241,14 @@
     let barChart = null;
     let slidesTps = [];
     let slideIndex = 0;
+
+    // Cache data untuk ganti filter kecamatan secara instan tanpa query ulang berlebih
+    let cacheKec = [];
+    let cacheDesa = [];
+    let cacheKtpRows = [];
+    let cacheSuaraList = [];
+
+    const filterKecEl = document.getElementById('filterKecGrafik');
 
     function tampilkanSlideTps() {
       const angkaEl = document.getElementById('statTotalTps');
@@ -291,6 +330,77 @@
       });
     }
 
+    function updateGrafikBatang() {
+      if (!barChart) return;
+
+      const selectedKecId = filterKecEl.value;
+      const judulEl = document.getElementById('judulGrafikBatang');
+
+      const desaToKec = new Map();
+      cacheDesa.forEach(d => {
+        if (d.kecamatan_id) desaToKec.set(d.id, d.kecamatan_id);
+      });
+
+      if (!selectedKecId) {
+        judulEl.textContent = '📈 KTP TERKUMPUL VS SUARA PER KECAMATAN';
+
+        const ktpPerKec = new Map();
+        const suaraPerKec = new Map();
+        cacheKec.forEach(k => {
+          ktpPerKec.set(k.id, 0);
+          suaraPerKec.set(k.id, 0);
+        });
+
+        cacheKtpRows.forEach(row => {
+          const kecId = row.desa?.kecamatan_id || desaToKec.get(row.desa_id);
+          if (kecId && ktpPerKec.has(kecId)) {
+            ktpPerKec.set(kecId, ktpPerKec.get(kecId) + 1);
+          }
+        });
+
+        cacheSuaraList.forEach(s => {
+          const kecId = s.desa?.kecamatan_id || desaToKec.get(s.desa_id);
+          if (kecId && suaraPerKec.has(kecId)) {
+            suaraPerKec.set(kecId, suaraPerKec.get(kecId) + Number(s.suara_calon || 0));
+          }
+        });
+
+        barChart.data.labels = cacheKec.map(k => k.nama_kecamatan);
+        barChart.data.datasets[0].data = cacheKec.map(k => ktpPerKec.get(k.id) || 0);
+        barChart.data.datasets[1].data = cacheKec.map(k => suaraPerKec.get(k.id) || 0);
+        barChart.update();
+      } else {
+        const kecObj = cacheKec.find(k => String(k.id) === selectedKecId);
+        const namaKec = kecObj ? kecObj.nama_kecamatan : 'Kecamatan';
+        judulEl.textContent = `📈 KTP VS SUARA PER DESA • ${namaKec.toUpperCase()}`;
+
+        const desaDiKec = cacheDesa.filter(d => String(d.kecamatan_id) === selectedKecId);
+        const ktpPerDesa = new Map();
+        const suaraPerDesa = new Map();
+        desaDiKec.forEach(d => {
+          ktpPerDesa.set(d.id, 0);
+          suaraPerDesa.set(d.id, 0);
+        });
+
+        cacheKtpRows.forEach(row => {
+          if (row.desa_id && ktpPerDesa.has(row.desa_id)) {
+            ktpPerDesa.set(row.desa_id, ktpPerDesa.get(row.desa_id) + 1);
+          }
+        });
+
+        cacheSuaraList.forEach(s => {
+          if (s.desa_id && suaraPerDesa.has(s.desa_id)) {
+            suaraPerDesa.set(s.desa_id, suaraPerDesa.get(s.desa_id) + Number(s.suara_calon || 0));
+          }
+        });
+
+        barChart.data.labels = desaDiKec.map(d => d.nama_desa);
+        barChart.data.datasets[0].data = desaDiKec.map(d => ktpPerDesa.get(d.id) || 0);
+        barChart.data.datasets[1].data = desaDiKec.map(d => suaraPerDesa.get(d.id) || 0);
+        barChart.update();
+      }
+    }
+
     async function muatDashboardLive() {
       const statusEl = document.getElementById('statusLive');
 
@@ -306,18 +416,29 @@
           supabase.from('desa').select('id, nama_desa, kecamatan_id, target_ktp').order('nama_desa', { ascending: true }),
           supabase.from('tps').select('id, desa_id'),
           supabase.from('data_ktp').select('id, desa_id, desa(kecamatan_id)', { count: 'exact' }),
-          supabase.from('suara_tps').select('suara_calon, desa(kecamatan_id)')
+          supabase.from('suara_tps').select('desa_id, suara_calon, desa(kecamatan_id)')
         ]);
 
         if (errKec || errDesa || errTps || errKtp || errSuara) {
           throw errKec || errDesa || errTps || errKtp || errSuara;
         }
 
-        const ktpRows = dKtpRows || [];
-        const ktpMasuk = Number(totalKtp ?? ktpRows.length);
+        cacheKec = dKec || [];
+        cacheDesa = dDesa || [];
+        cacheKtpRows = dKtpRows || [];
+        cacheSuaraList = dSuara || [];
+
+        // Perbarui opsi dropdown kecamatan sambil mempertahankan pilihan aktif
+        const pilihanLama = filterKecEl.value;
+        filterKecEl.innerHTML =
+          '<option value="">Semua Kecamatan (Rekap Kecamatan)</option>' +
+          cacheKec.map(k => `<option value="${k.id}">📍 ${k.nama_kecamatan}</option>`).join('');
+        filterKecEl.value = pilihanLama;
+
+        const ktpMasuk = Number(totalKtp ?? cacheKtpRows.length);
         const tpsList = dTpsRows || [];
         const tpsSemua = Number(totalTps ?? tpsList.length);
-        const targetKtp = (dDesa || []).reduce((acc, d) => acc + Number(d.target_ktp || 0), 0);
+        const targetKtp = cacheDesa.reduce((acc, d) => acc + Number(d.target_ktp || 0), 0);
 
         const persenRaw = targetKtp > 0 ? (ktpMasuk / targetKtp) * 100 : 0;
         const persenBulat = targetKtp > 0
@@ -325,11 +446,9 @@
           : 0;
         const sisaPersen = Math.max(0, 100 - persenBulat);
 
-        const suaraList = dSuara || [];
-        const totalSuara = suaraList.reduce((acc, s) => acc + Number(s.suara_calon || 0), 0);
-        const tpsMasuk = suaraList.length;
+        const totalSuara = cacheSuaraList.reduce((acc, s) => acc + Number(s.suara_calon || 0), 0);
+        const tpsMasuk = cacheSuaraList.length;
 
-        // Susun daftar rotasi TPS terdaftar: Total semua TPS -> per Desa (yang memiliki TPS)
         const countPerDesa = new Map();
         tpsList.forEach(t => {
           if (t.desa_id) {
@@ -341,7 +460,7 @@
           { jumlah: tpsSemua, label: '🗳️ Total Semua TPS' }
         ];
 
-        (dDesa || []).forEach(d => {
+        cacheDesa.forEach(d => {
           const jml = countPerDesa.get(d.id) || 0;
           if (jml > 0) {
             nextSlides.push({
@@ -368,44 +487,7 @@
           donutChart.update();
         }
 
-        // Map desa_id -> kecamatan_id sebagai cadangan bila relasi bersarang kosong
-        const desaToKec = new Map();
-        (dDesa || []).forEach(d => {
-          if (d.kecamatan_id) desaToKec.set(d.id, d.kecamatan_id);
-        });
-
-        // Hitung KTP Terkumpul & Suara Masuk per Kecamatan
-        const ktpPerKec = new Map();
-        const suaraPerKec = new Map();
-        (dKec || []).forEach(k => {
-          ktpPerKec.set(k.id, 0);
-          suaraPerKec.set(k.id, 0);
-        });
-
-        ktpRows.forEach(row => {
-          const kecId = row.desa?.kecamatan_id || desaToKec.get(row.desa_id);
-          if (kecId && ktpPerKec.has(kecId)) {
-            ktpPerKec.set(kecId, ktpPerKec.get(kecId) + 1);
-          }
-        });
-
-        suaraList.forEach(s => {
-          const kecId = s.desa?.kecamatan_id;
-          if (kecId && suaraPerKec.has(kecId)) {
-            suaraPerKec.set(kecId, suaraPerKec.get(kecId) + Number(s.suara_calon || 0));
-          }
-        });
-
-        const labelsKec = (dKec || []).map(k => k.nama_kecamatan);
-        const dataKtpKec = (dKec || []).map(k => ktpPerKec.get(k.id) || 0);
-        const dataSuaraKec = (dKec || []).map(k => suaraPerKec.get(k.id) || 0);
-
-        if (barChart) {
-          barChart.data.labels = labelsKec;
-          barChart.data.datasets[0].data = dataKtpKec;
-          barChart.data.datasets[1].data = dataSuaraKec;
-          barChart.update();
-        }
+        updateGrafikBatang();
 
         statusEl.textContent = '🟢 Live • Terhubung';
         document.getElementById('lastUpdateText').textContent =
@@ -415,6 +497,8 @@
         document.getElementById('lastUpdateText').textContent = `Error: ${err.message}`;
       }
     }
+
+    filterKecEl.addEventListener('change', updateGrafikBatang);
 
     initCharts();
     await muatDashboardLive();
