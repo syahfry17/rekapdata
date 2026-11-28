@@ -364,19 +364,8 @@
     import { supabase } from './js/config.js';
 
     const btnPanelAdmin = document.getElementById('btnPanelAdmin');
-    btnPanelAdmin.addEventListener('click', async () => {
-      const kandidatFile = ['./admin.html', './login.html', './panel.html'];
-      for (const relPath of kandidatFile) {
-        try {
-          const url = new URL(relPath, window.location.href).href;
-          const res = await fetch(url, { method: 'HEAD' });
-          if (res.ok) {
-            window.location.assign(url);
-            return;
-          }
-        } catch (_) {}
-      }
-      window.location.assign(new URL('./admin.html', window.location.href).href);
+    btnPanelAdmin.addEventListener('click', () => {
+      window.location.assign(new URL('./login.html', window.location.href).href);
     });
 
     let donutChart = null;
