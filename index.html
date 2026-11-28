@@ -145,8 +145,8 @@
       font-size: 12px;
       color: #475569;
       font-weight: 600;
-      margin-top: -8px;
-      margin-bottom: 12px;
+      margin-top: 4px;
+      margin-bottom: 14px;
     }
 
     .filter-kec-select {
@@ -293,9 +293,10 @@
     <!-- KARTU STATISTIK -->
     <div class="card-grid">
       <div class="stat-card">
-        <h4>KTP TERKUMPUL</h4>
-        <div class="angka" id="statKtp">0 / 0</div>
-        <div class="keterangan" id="ketPersenKtp">⏳ 0% Target</div>
+        <h4>JUMLAH TIM</h4>
+        <div class="angka" id="statTim">0</div>
+        <div class="keterangan" id="ketTimWilayah">👥 Total Semua Tim</div>
+        <div class="sub-info" id="subTimInfo">Personel terdaftar</div>
       </div>
 
       <div class="stat-card">
@@ -308,7 +309,7 @@
       <div class="stat-card">
         <h4>TARGET KESELURUHAN</h4>
         <div class="angka" id="statTarget">0</div>
-        <div class="keterangan">📋 Total Target KTP</div>
+        <div class="keterangan" id="ketTargetWilayah">📋 Total Target KTP</div>
       </div>
 
       <div class="stat-card">
@@ -361,6 +362,12 @@
     let donutChart = null;
     let barChart = null;
 
+    let slidesTim = [];
+    let slideTimIndex = 0;
+
+    let slidesTarget = [];
+    let slideTargetIndex = 0;
+
     let slidesTps = [];
     let slideTpsIndex = 0;
 
@@ -373,6 +380,28 @@
     let cacheSuaraList = [];
 
     const filterKecEl = document.getElementById('filterKecGrafik');
+
+    function tampilkanSlideTim() {
+      const angkaEl = document.getElementById('statTim');
+      const ketEl = document.getElementById('ketTimWilayah');
+      const subEl = document.getElementById('subTimInfo');
+      if (!angkaEl || !ketEl || !subEl || slidesTim.length === 0) return;
+
+      const aktif = slidesTim[slideTimIndex % slidesTim.length];
+      angkaEl.textContent = Number(aktif.jumlah || 0).toLocaleString('id-ID');
+      ketEl.textContent = aktif.label;
+      subEl.textContent = aktif.sub;
+    }
+
+    function tampilkanSlideTarget() {
+      const angkaEl = document.getElementById('statTarget');
+      const ketEl = document.getElementById('ketTargetWilayah');
+      if (!angkaEl || !ketEl || slidesTarget.length === 0) return;
+
+      const aktif = slidesTarget[slideTargetIndex % slidesTarget.length];
+      angkaEl.textContent = Number(aktif.target || 0).toLocaleString('id-ID');
+      ketEl.textContent = aktif.label;
+    }
 
     function tampilkanSlideTps() {
       const angkaEl = document.getElementById('statTotalTps');
@@ -396,8 +425,16 @@
       subEl.textContent = aktif.sub;
     }
 
-    // Pergantian otomatis setiap 5 detik untuk kartu Suara Masuk & TPS Terdaftar
+    // Pergantian otomatis setiap 5 detik untuk semua kartu statistik
     setInterval(() => {
+      if (slidesTim.length > 1) {
+        slideTimIndex = (slideTimIndex + 1) % slidesTim.length;
+        tampilkanSlideTim();
+      }
+      if (slidesTarget.length > 1) {
+        slideTargetIndex = (slideTargetIndex + 1) % slidesTarget.length;
+        tampilkanSlideTarget();
+      }
       if (slidesSuara.length > 1) {
         slideSuaraIndex = (slideSuaraIndex + 1) % slidesSuara.length;
         tampilkanSlideSuara();
@@ -631,13 +668,15 @@
           { data: dDesa, error: errDesa },
           { data: dTpsRows, count: totalTps, error: errTps },
           { data: dKtpRows, count: totalKtp, error: errKtp },
-          { data: dSuara, error: errSuara }
+          { data: dSuara, error: errSuara },
+          { data: dTimRows, error: errTim }
         ] = await Promise.all([
           supabase.from('kecamatan').select('id, nama_kecamatan').order('nama_kecamatan', { ascending: true }),
           supabase.from('desa').select('id, nama_desa, kecamatan_id, target_ktp').order('nama_desa', { ascending: true }),
           supabase.from('tps').select('id, desa_id'),
           supabase.from('data_ktp').select('id, desa_id, desa(kecamatan_id)', { count: 'exact' }),
-          supabase.from('suara_tps').select('desa_id, suara_calon, suara_tidak_sah, desa(kecamatan_id)')
+          supabase.from('suara_tps').select('desa_id, suara_calon, suara_tidak_sah, desa(kecamatan_id)'),
+          supabase.from('users_tim').select('id, desa_id')
         ]);
 
         if (errKec || errDesa || errTps || errKtp || errSuara) {
@@ -648,6 +687,7 @@
         cacheDesa = dDesa || [];
         cacheKtpRows = dKtpRows || [];
         cacheSuaraList = dSuara || [];
+        const timRows = errTim ? [] : (dTimRows || []);
 
         const pilihanLama = filterKecEl.value;
         filterKecEl.innerHTML =
@@ -660,13 +700,6 @@
         const tpsSemua = Number(totalTps ?? tpsList.length);
         const targetKtp = cacheDesa.reduce((acc, d) => acc + Number(d.target_ktp || 0), 0);
 
-        // Persentase KTP terkumpul untuk kartu KTP
-        const persenKtpRaw = targetKtp > 0 ? (ktpMasuk / targetKtp) * 100 : 0;
-        const persenKtpBulat = targetKtp > 0
-          ? (persenKtpRaw > 0 && persenKtpRaw < 1 ? 1 : Math.min(100, Math.round(persenKtpRaw)))
-          : 0;
-
-        // Perhitungan Suara Masuk vs Target KTP untuk Donat
         const totalSuara = cacheSuaraList.reduce((acc, s) => acc + Number(s.suara_calon || 0), 0);
         const totalTidakSah = cacheSuaraList.reduce((acc, s) => acc + Number(s.suara_tidak_sah || 0), 0);
         const tpsMasuk = cacheSuaraList.length;
@@ -678,6 +711,53 @@
 
         const suaraTercapai = Math.min(totalSuara, targetKtp);
         const sisaTargetSuara = Math.max(0, targetKtp - totalSuara);
+
+        // Hitung jumlah tim per desa
+        const timPerDesaMap = new Map();
+        timRows.forEach(u => {
+          if (u.desa_id) {
+            timPerDesaMap.set(u.desa_id, (timPerDesaMap.get(u.desa_id) || 0) + 1);
+          }
+        });
+
+        const nextSlidesTim = [
+          {
+            jumlah: timRows.length,
+            label: '👥 Total Semua Tim',
+            sub: `KTP terkumpul: ${ktpMasuk.toLocaleString('id-ID')}`
+          }
+        ];
+        cacheDesa.forEach(d => {
+          const jmlTimDesa = timPerDesaMap.get(d.id) || 0;
+          if (jmlTimDesa > 0) {
+            nextSlidesTim.push({
+              jumlah: jmlTimDesa,
+              label: `🏘️ ${d.nama_desa}`,
+              sub: 'Anggota tim desa'
+            });
+          }
+        });
+        slidesTim = nextSlidesTim;
+        slideTimIndex = 0;
+
+        // Susun slide rotasi TARGET KESELURUHAN (Total Target -> Target per Desa)
+        const nextSlidesTarget = [
+          {
+            target: targetKtp,
+            label: '📋 Total Target KTP'
+          }
+        ];
+        cacheDesa.forEach(d => {
+          const targetDesa = Number(d.target_ktp || 0);
+          if (targetDesa > 0) {
+            nextSlidesTarget.push({
+              target: targetDesa,
+              label: `🏘️ ${d.nama_desa}`
+            });
+          }
+        });
+        slidesTarget = nextSlidesTarget;
+        slideTargetIndex = 0;
 
         // Hitung TPS & Suara per Desa untuk rotasi 5 detik
         const tpsPerDesaMap = new Map();
@@ -696,7 +776,6 @@
           }
         });
 
-        // Susun slide rotasi kartu TPS TERDAFTAR
         const nextSlidesTps = [
           { jumlah: tpsSemua, label: '🗳️ Total Semua TPS' }
         ];
@@ -712,7 +791,6 @@
         slidesTps = nextSlidesTps;
         slideTpsIndex = 0;
 
-        // Susun slide rotasi kartu SUARA MASUK (Total -> per Desa)
         const nextSlidesSuara = [
           {
             suara: totalSuara,
@@ -736,15 +814,12 @@
         slideSuaraIndex = 0;
 
         // Render 4 kartu statistik
-        document.getElementById('statKtp').textContent = `${ktpMasuk.toLocaleString('id-ID')} / ${targetKtp.toLocaleString('id-ID')}`;
-        document.getElementById('ketPersenKtp').textContent = `✅ ${persenKtpBulat}% Target`;
-
+        tampilkanSlideTim();
         tampilkanSlideSuara();
-
-        document.getElementById('statTarget').textContent = targetKtp.toLocaleString('id-ID');
+        tampilkanSlideTarget();
         tampilkanSlideTps();
 
-        // Update Donat: Target KTP vs Suara Masuk (tanpa suara tidak sah)
+        // Update Donat: Target KTP vs Suara Masuk
         document.getElementById('donutPersenText').textContent = `${persenSuaraBulat}%`;
         document.getElementById('donutSubCaption').textContent =
           `${totalSuara.toLocaleString('id-ID')} Suara dari ${targetKtp.toLocaleString('id-ID')} Target KTP`;
@@ -783,6 +858,7 @@
       .on('postgres_changes', { event: '*', schema: 'public', table: 'desa' }, muatDashboardLive)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'tps' }, muatDashboardLive)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'kecamatan' }, muatDashboardLive)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'users_tim' }, muatDashboardLive)
       .subscribe();
   </script>
 </body>
