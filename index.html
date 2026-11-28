@@ -109,6 +109,13 @@
       font-weight: 600;
     }
 
+    .stat-card .sub-info {
+      font-size: 11px;
+      color: #64748b;
+      margin-top: 4px;
+      font-weight: 600;
+    }
+
     /* KONTAINER GRAFIK */
     .chart-container {
       background: #ffffff;
@@ -152,15 +159,106 @@
       background-color: #ffffff;
     }
 
+    /* DONUT + ANGKA DI TENGAH */
     .donut-wrap {
-      max-width: 280px;
+      position: relative;
+      max-width: 260px;
       margin: 0 auto;
+    }
+
+    .donut-center-text {
+      position: absolute;
+      top: 42%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+      pointer-events: none;
+    }
+
+    .donut-center-text .persen-besar {
+      font-size: 28px;
+      font-weight: 800;
+      color: #0B2C70;
+      line-height: 1.1;
+    }
+
+    .donut-center-text .persen-label {
+      font-size: 11px;
+      font-weight: 700;
+      color: #64748b;
+      text-transform: uppercase;
+      margin-top: 2px;
     }
 
     .bar-wrap {
       position: relative;
       width: 100%;
       min-height: 270px;
+    }
+
+    /* LEADERBOARD TOP 5 DESA */
+    .top-desa-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-top: 10px;
+    }
+
+    .top-desa-item {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 11px 13px;
+    }
+
+    .top-desa-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      margin-bottom: 6px;
+    }
+
+    .top-desa-name {
+      font-weight: 700;
+      color: #0f172a;
+    }
+
+    .top-desa-kec {
+      font-size: 11px;
+      color: #64748b;
+      font-weight: 600;
+    }
+
+    .top-desa-stat {
+      font-weight: 800;
+      color: #1E4BB8;
+      white-space: nowrap;
+    }
+
+    .progress-track {
+      width: 100%;
+      height: 8px;
+      background: #e2e8f0;
+      border-radius: 999px;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #1E4BB8, #38bdf8);
+      border-radius: 999px;
+      transition: width 0.35s ease;
+    }
+
+    .top-desa-meta {
+      display: flex;
+      justify-content: space-between;
+      font-size: 11px;
+      color: #475569;
+      margin-top: 5px;
+      font-weight: 600;
     }
 
     .footer-note {
@@ -195,6 +293,7 @@
         <h4>SUARA MASUK</h4>
         <div class="angka" id="statSuara">0</div>
         <div class="keterangan" id="ketTpsMasuk">🗳️ 0 / 0 TPS</div>
+        <div class="sub-info" id="subSuaraTidakSah">Tidak sah: 0</div>
       </div>
 
       <div class="stat-card">
@@ -215,6 +314,10 @@
       <h3>📊 PROGRESS TARGET KTP</h3>
       <div class="donut-wrap">
         <canvas id="circleChart"></canvas>
+        <div class="donut-center-text">
+          <div class="persen-besar" id="donutPersenText">0%</div>
+          <div class="persen-label">Tercapai</div>
+        </div>
       </div>
     </div>
 
@@ -231,6 +334,14 @@
       </div>
     </div>
 
+    <!-- PERINGKAT 5 DESA TERATAS -->
+    <div class="chart-container">
+      <h3>🏆 PERINGKAT 5 DESA TERATAS (PROGRES KTP & SUARA)</h3>
+      <div id="topDesaList" class="top-desa-list">
+        <p style="font-size:13px; color:#64748b; text-align:center;">Memuat peringkat desa...</p>
+      </div>
+    </div>
+
     <div class="footer-note" id="lastUpdateText">Memuat data terbaru...</div>
   </div>
 
@@ -242,7 +353,6 @@
     let slidesTps = [];
     let slideIndex = 0;
 
-    // Cache data untuk ganti filter kecamatan secara instan tanpa query ulang berlebih
     let cacheKec = [];
     let cacheDesa = [];
     let cacheKtpRows = [];
@@ -281,7 +391,7 @@
         },
         options: {
           responsive: true,
-          cutout: '66%',
+          cutout: '68%',
           plugins: {
             legend: {
               position: 'bottom',
@@ -401,6 +511,86 @@
       }
     }
 
+    function updateTopDesaLeaderboard() {
+      const containerEl = document.getElementById('topDesaList');
+      if (!containerEl) return;
+
+      const selectedKecId = filterKecEl.value;
+      const kecMap = new Map();
+      cacheKec.forEach(k => kecMap.set(k.id, k.nama_kecamatan));
+
+      const ktpPerDesa = new Map();
+      cacheKtpRows.forEach(row => {
+        if (row.desa_id) {
+          ktpPerDesa.set(row.desa_id, (ktpPerDesa.get(row.desa_id) || 0) + 1);
+        }
+      });
+
+      const suaraPerDesa = new Map();
+      cacheSuaraList.forEach(s => {
+        if (s.desa_id) {
+          suaraPerDesa.set(s.desa_id, (suaraPerDesa.get(s.desa_id) || 0) + Number(s.suara_calon || 0));
+        }
+      });
+
+      const kandidatDesa = selectedKecId
+        ? cacheDesa.filter(d => String(d.kecamatan_id) === selectedKecId)
+        : cacheDesa;
+
+      const ranked = kandidatDesa
+        .map(d => {
+          const ktp = ktpPerDesa.get(d.id) || 0;
+          const suara = suaraPerDesa.get(d.id) || 0;
+          const target = Number(d.target_ktp || 0);
+          const pct = target > 0 ? Math.min(100, (ktp / target) * 100) : 0;
+          return {
+            namaDesa: d.nama_desa,
+            namaKec: kecMap.get(d.kecamatan_id) || '',
+            ktp,
+            suara,
+            target,
+            pct
+          };
+        })
+        .sort((a, b) => {
+          if (b.pct !== a.pct) return b.pct - a.pct;
+          if (b.ktp !== a.ktp) return b.ktp - a.ktp;
+          return b.suara - a.suara;
+        })
+        .slice(0, 5);
+
+      if (ranked.length === 0) {
+        containerEl.innerHTML = `<p style="font-size:13px; color:#64748b; text-align:center;">Belum ada data desa untuk ditampilkan.</p>`;
+        return;
+      }
+
+      containerEl.innerHTML = ranked.map((item, idx) => {
+        const pctLabel = item.target > 0
+          ? `${item.pct < 1 && item.pct > 0 ? item.pct.toFixed(1) : Math.round(item.pct)}%`
+          : '0%';
+        const barWidth = Math.min(100, Math.max(0, item.pct));
+
+        return `
+          <div class="top-desa-item">
+            <div class="top-desa-top">
+              <div>
+                <span class="top-desa-name">#${idx + 1} ${item.namaDesa}</span>
+                ${item.namaKec ? `<div class="top-desa-kec">${item.namaKec}</div>` : ''}
+              </div>
+              <span class="top-desa-stat">${pctLabel}</span>
+            </div>
+            <div class="progress-track">
+              <div class="progress-fill" style="width:${barWidth}%;"></div>
+            </div>
+            <div class="top-desa-meta">
+              <span>KTP: ${item.ktp.toLocaleString('id-ID')} / ${item.target.toLocaleString('id-ID')}</span>
+              <span>Suara: ${item.suara.toLocaleString('id-ID')}</span>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
     async function muatDashboardLive() {
       const statusEl = document.getElementById('statusLive');
 
@@ -416,7 +606,7 @@
           supabase.from('desa').select('id, nama_desa, kecamatan_id, target_ktp').order('nama_desa', { ascending: true }),
           supabase.from('tps').select('id, desa_id'),
           supabase.from('data_ktp').select('id, desa_id, desa(kecamatan_id)', { count: 'exact' }),
-          supabase.from('suara_tps').select('desa_id, suara_calon, desa(kecamatan_id)')
+          supabase.from('suara_tps').select('desa_id, suara_calon, suara_tidak_sah, desa(kecamatan_id)')
         ]);
 
         if (errKec || errDesa || errTps || errKtp || errSuara) {
@@ -428,7 +618,6 @@
         cacheKtpRows = dKtpRows || [];
         cacheSuaraList = dSuara || [];
 
-        // Perbarui opsi dropdown kecamatan sambil mempertahankan pilihan aktif
         const pilihanLama = filterKecEl.value;
         filterKecEl.innerHTML =
           '<option value="">Semua Kecamatan (Rekap Kecamatan)</option>' +
@@ -447,6 +636,7 @@
         const sisaPersen = Math.max(0, 100 - persenBulat);
 
         const totalSuara = cacheSuaraList.reduce((acc, s) => acc + Number(s.suara_calon || 0), 0);
+        const totalTidakSah = cacheSuaraList.reduce((acc, s) => acc + Number(s.suara_tidak_sah || 0), 0);
         const tpsMasuk = cacheSuaraList.length;
 
         const countPerDesa = new Map();
@@ -478,9 +668,12 @@
 
         document.getElementById('statSuara').textContent = totalSuara.toLocaleString('id-ID');
         document.getElementById('ketTpsMasuk').textContent = `✅ ${tpsMasuk.toLocaleString('id-ID')} / ${tpsSemua.toLocaleString('id-ID')} TPS`;
+        document.getElementById('subSuaraTidakSah').textContent = `Tidak sah: ${totalTidakSah.toLocaleString('id-ID')}`;
 
         document.getElementById('statTarget').textContent = targetKtp.toLocaleString('id-ID');
         tampilkanSlideTps();
+
+        document.getElementById('donutPersenText').textContent = `${persenBulat}%`;
 
         if (donutChart) {
           donutChart.data.datasets[0].data = targetKtp > 0 ? [persenBulat, sisaPersen] : [0, 100];
@@ -488,6 +681,7 @@
         }
 
         updateGrafikBatang();
+        updateTopDesaLeaderboard();
 
         statusEl.textContent = '🟢 Live • Terhubung';
         document.getElementById('lastUpdateText').textContent =
@@ -498,7 +692,10 @@
       }
     }
 
-    filterKecEl.addEventListener('change', updateGrafikBatang);
+    filterKecEl.addEventListener('change', () => {
+      updateGrafikBatang();
+      updateTopDesaLeaderboard();
+    });
 
     initCharts();
     await muatDashboardLive();
