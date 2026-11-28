@@ -269,13 +269,13 @@
           { data: dKec, error: errKec },
           { data: dDesa, error: errDesa },
           { count: totalTps, error: errTps },
-          { count: totalKtp, error: errKtp },
+          { data: dKtpRows, count: totalKtp, error: errKtp },
           { data: dSuara, error: errSuara }
         ] = await Promise.all([
           supabase.from('kecamatan').select('id, nama_kecamatan').order('nama_kecamatan', { ascending: true }),
           supabase.from('desa').select('id, kecamatan_id, target_ktp'),
-          supabase.from('tps').select('*', { count: 'exact', head: true }),
-          supabase.from('data_ktp').select('*', { count: 'exact', head: true }),
+          supabase.from('tps').select('id', { count: 'exact' }),
+          supabase.from('data_ktp').select('id', { count: 'exact' }),
           supabase.from('suara_tps').select('suara_calon, desa(kecamatan_id)')
         ]);
 
@@ -283,7 +283,7 @@
           throw errKec || errDesa || errTps || errKtp || errSuara;
         }
 
-        const ktpMasuk = Number(totalKtp || 0);
+        const ktpMasuk = Number(totalKtp ?? (dKtpRows ? dKtpRows.length : 0));
         const tpsSemua = Number(totalTps || 0);
         const targetKtp = (dDesa || []).reduce((acc, d) => acc + Number(d.target_ktp || 0), 0);
 
@@ -297,7 +297,6 @@
         const totalSuara = suaraList.reduce((acc, s) => acc + Number(s.suara_calon || 0), 0);
         const tpsMasuk = suaraList.length;
 
-        // Update 4 Kartu Statistik
         document.getElementById('statKtp').textContent = `${ktpMasuk.toLocaleString('id-ID')} / ${targetKtp.toLocaleString('id-ID')}`;
         document.getElementById('ketPersenKtp').textContent = `✅ ${persenBulat}% Target`;
 
@@ -307,13 +306,11 @@
         document.getElementById('statTarget').textContent = targetKtp.toLocaleString('id-ID');
         document.getElementById('statTotalTps').textContent = tpsSemua.toLocaleString('id-ID');
 
-        // Update Grafik Donut Target KTP
         if (donutChart) {
           donutChart.data.datasets[0].data = targetKtp > 0 ? [persenBulat, sisaPersen] : [0, 100];
           donutChart.update();
         }
 
-        // Hitung Suara per Kecamatan
         const suaraPerKec = new Map();
         (dKec || []).forEach(k => suaraPerKec.set(k.id, 0));
 
@@ -345,7 +342,6 @@
     initCharts();
     await muatDashboardLive();
 
-    // Berlangganan pembaruan real-time dari Supabase
     supabase
       .channel('pantau-live-dashboard')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'data_ktp' }, muatDashboardLive)
