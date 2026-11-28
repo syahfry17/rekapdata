@@ -25,6 +25,7 @@ export async function render(container, profil) {
         transform: scale(0.99);
       }
 
+      /* Level 1: Grup Desa */
       .ktp-desa-group {
         background: #ffffff;
         border: 1px solid #cbd5e1;
@@ -64,6 +65,61 @@ export async function render(container, profil) {
       .ktp-desa-body.open {
         display: block;
       }
+
+      /* Blok warga yang belum memiliki TPS (di atas kategori TPS) */
+      .ktp-unassigned-box {
+        background: #fffbeb;
+        border: 1px solid #fde68a;
+        border-radius: 10px;
+        padding: 10px;
+        margin-bottom: 10px;
+      }
+      .ktp-unassigned-label {
+        font-size: 12px;
+        font-weight: 800;
+        color: #92400e;
+        margin-bottom: 8px;
+      }
+
+      /* Level 2: Kategori per TPS di dalam Desa */
+      .ktp-tps-group {
+        background: #f8fafc;
+        border: 1px solid #cbd5e1;
+        border-radius: 10px;
+        padding: 10px 12px;
+        margin-top: 8px;
+        transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+      }
+      .ktp-tps-group:first-child {
+        margin-top: 0;
+      }
+      .ktp-tps-group.expanded {
+        background: #ffffff;
+        border-color: #93c5fd;
+        box-shadow: 0 2px 10px rgba(37, 99, 235, 0.08);
+      }
+      .ktp-tps-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+      .ktp-tps-title {
+        font-size: 13px;
+        font-weight: 700;
+        color: #0f172a;
+      }
+      .ktp-tps-body {
+        display: none;
+        margin-top: 10px;
+        padding-top: 10px;
+        border-top: 1px dashed #cbd5e1;
+      }
+      .ktp-tps-body.open {
+        display: block;
+      }
+
       .btn-rincian-ktp {
         padding: 5px 9px;
         font-size: 11px;
@@ -80,7 +136,7 @@ export async function render(container, profil) {
         color: #ffffff;
       }
 
-      /* Kartu warga dengan garis biru saat rincian desa dibuka */
+      /* Kartu warga dengan garis biru menyala saat dibuka */
       .ktp-warga-item {
         background: #f8fafc;
         border: 1.5px solid #e2e8f0;
@@ -96,10 +152,11 @@ export async function render(container, profil) {
       .ktp-warga-item:first-child {
         margin-top: 0;
       }
-      .ktp-desa-body.open .ktp-warga-item {
+      .ktp-tps-body.open .ktp-warga-item,
+      .ktp-unassigned-box .ktp-warga-item {
         background: #ffffff;
         border-color: #3b82f6;
-        box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.14), 0 0 10px rgba(37, 99, 235, 0.16);
+        box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.16), 0 0 12px rgba(37, 99, 235, 0.2);
       }
 
       .uploader-tag {
@@ -301,8 +358,9 @@ export async function render(container, profil) {
     msgEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   };
 
-  // Menyimpan ID kelompok desa yang sedang dibuka rinciannya
+  // Menyimpan ID desa & kategori TPS yang sedang dibuka rinciannya
   const openedDesaKtpIds = new Set();
+  const openedTpsKtpIds = new Set();
 
   let daftarDesa = [];
   let cacheListKtp = [];
@@ -351,7 +409,6 @@ export async function render(container, profil) {
       listTps.map(t => `<option value="${t.id}" ${String(t.id) === String(selectedTpsId) ? 'selected' : ''}>TPS ${t.nomor_tps}</option>`).join('');
   }
 
-  // Muat daftar desa & TPS
   let queryDesa = supabase
     .from('desa')
     .select('id, nama_desa, kecamatan(nama_kecamatan), tps(id, nomor_tps)')
@@ -464,7 +521,7 @@ export async function render(container, profil) {
       .from('data_ktp')
       .select('id, nik, nama, alamat, desa_id, tps_id, pengepul_id, created_at, desa(nama_desa, kecamatan(nama_kecamatan)), tps(nomor_tps), users_tim(nama_lengkap, role, email)', { count: 'exact' })
       .order('created_at', { ascending: false })
-      .limit(100);
+      .limit(200);
 
     if (!isSuper && profil.desa_id) {
       query = query.eq('desa_id', profil.desa_id);
@@ -500,21 +557,43 @@ export async function render(container, profil) {
       return;
     }
 
-    // Kelompokkan KTP berdasarkan Desa
+    // Kelompokkan KTP berdasarkan Desa -> lalu pisahkan Belum Ada TPS di atas & Kategori per TPS
     const grupDesaMap = new Map();
     cacheListKtp.forEach((item, idx) => {
-      const key = String(item.desa_id || 'lainnya');
+      const desaKey = String(item.desa_id || 'lainnya');
       const namaDesa = item.desa?.nama_desa || 'Desa Lainnya';
       const namaKec = item.desa?.kecamatan?.nama_kecamatan || '';
-      if (!grupDesaMap.has(key)) {
-        grupDesaMap.set(key, {
-          key,
+
+      if (!grupDesaMap.has(desaKey)) {
+        grupDesaMap.set(desaKey, {
+          key: desaKey,
           namaDesa,
           namaKec,
-          items: []
+          totalKtp: 0,
+          tpsTerisi: 0,
+          belumAdaTps: [],
+          tpsMap: new Map()
         });
       }
-      grupDesaMap.get(key).items.push({ item, idx });
+
+      const gDesa = grupDesaMap.get(desaKey);
+      gDesa.totalKtp += 1;
+
+      if (!item.tps_id) {
+        gDesa.belumAdaTps.push({ item, idx });
+      } else {
+        gDesa.tpsTerisi += 1;
+        const nomorTps = item.tps?.nomor_tps || String(item.tps_id);
+        const tpsGroupKey = `${desaKey}-tps-${item.tps_id}`;
+        if (!gDesa.tpsMap.has(tpsGroupKey)) {
+          gDesa.tpsMap.set(tpsGroupKey, {
+            key: tpsGroupKey,
+            nomorTps,
+            entries: []
+          });
+        }
+        gDesa.tpsMap.get(tpsGroupKey).entries.push({ item, idx });
+      }
     });
 
     const grupList = Array.from(grupDesaMap.values()).sort((a, b) =>
@@ -522,28 +601,61 @@ export async function render(container, profil) {
     );
 
     listEl.innerHTML = grupList.map(g => {
-      const isOpen = openedDesaKtpIds.has(g.key);
-      const tpsTerisi = g.items.filter(x => x.item.tps?.nomor_tps).length;
+      const isDesaOpen = openedDesaKtpIds.has(g.key);
       const subKec = (isSuper && g.namaKec) ? `${g.namaKec} • ` : '';
 
+      // 1. Warga yang belum punya TPS tampil langsung di bagian atas kategori TPS
+      const belumAdaTpsHtml = g.belumAdaTps.length > 0
+        ? `
+          <div class="ktp-unassigned-box">
+            <div class="ktp-unassigned-label">⚠️ Belum Memiliki TPS (${g.belumAdaTps.length} KTP)</div>
+            ${g.belumAdaTps.map(({ item, idx }) => renderKartuWarga(item, idx)).join('')}
+          </div>
+        `
+        : '';
+
+      // 2. Kategori per TPS diurutkan berdasarkan nomor TPS
+      const tpsGroupsSorted = Array.from(g.tpsMap.values()).sort((a, b) =>
+        String(a.nomorTps).localeCompare(String(b.nomorTps))
+      );
+
+      const kategoriTpsHtml = tpsGroupsSorted.map(tg => {
+        const isTpsOpen = openedTpsKtpIds.has(tg.key);
+        return `
+          <div class="ktp-tps-group ${isTpsOpen ? 'expanded' : ''}" id="ktpTpsCard-${tg.key}">
+            <div class="ktp-tps-head">
+              <div class="ktp-tps-title">🗳️ TPS ${tg.nomorTps} (${tg.entries.length} KTP)</div>
+              <button type="button" class="btn-rincian-ktp ${isTpsOpen ? 'active' : ''}" data-toggle-ktp-tps="${tg.key}">
+                ${isTpsOpen ? 'Tutup Rincian ▴' : 'Rincian ▾'}
+              </button>
+            </div>
+            <div class="ktp-tps-body ${isTpsOpen ? 'open' : ''}" id="ktpTpsBody-${tg.key}">
+              ${tg.entries.map(({ item, idx }) => renderKartuWarga(item, idx)).join('')}
+            </div>
+          </div>
+        `;
+      }).join('');
+
       return `
-        <div class="ktp-desa-group ${isOpen ? 'expanded' : ''}" id="ktpGrpCard-${g.key}">
+        <div class="ktp-desa-group ${isDesaOpen ? 'expanded' : ''}" id="ktpGrpCard-${g.key}">
           <div class="ktp-desa-head">
             <div>
-              <div class="ktp-desa-title">🏘️ ${g.namaDesa} (${g.items.length} KTP)</div>
-              <div class="ktp-desa-sub">${subKec}${tpsTerisi} sudah ada TPS</div>
+              <div class="ktp-desa-title">🏘️ ${g.namaDesa} (${g.totalKtp} KTP)</div>
+              <div class="ktp-desa-sub">${subKec}${g.tpsTerisi} sudah ada TPS</div>
             </div>
-            <button type="button" class="btn-rincian-ktp ${isOpen ? 'active' : ''}" data-toggle-ktp-desa="${g.key}">
-              ${isOpen ? 'Tutup Rincian ▴' : 'Rincian ▾'}
+            <button type="button" class="btn-rincian-ktp ${isDesaOpen ? 'active' : ''}" data-toggle-ktp-desa="${g.key}">
+              ${isDesaOpen ? 'Tutup Rincian ▴' : 'Rincian ▾'}
             </button>
           </div>
-          <div class="ktp-desa-body ${isOpen ? 'open' : ''}" id="ktpGrpBody-${g.key}">
-            ${g.items.map(({ item, idx }) => renderKartuWarga(item, idx)).join('')}
+          <div class="ktp-desa-body ${isDesaOpen ? 'open' : ''}" id="ktpGrpBody-${g.key}">
+            ${belumAdaTpsHtml}
+            ${kategoriTpsHtml}
           </div>
         </div>
       `;
     }).join('');
 
+    // Toggle Rincian Desa
     listEl.querySelectorAll('[data-toggle-ktp-desa]').forEach(btn => {
       btn.addEventListener('click', () => {
         const key = String(btn.dataset.toggleKtpDesa);
@@ -559,6 +671,25 @@ export async function render(container, profil) {
 
         if (akanBuka) openedDesaKtpIds.add(key);
         else openedDesaKtpIds.delete(key);
+      });
+    });
+
+    // Toggle Rincian per TPS di dalam Desa
+    listEl.querySelectorAll('[data-toggle-ktp-tps]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const key = String(btn.dataset.toggleKtpTps);
+        const bodyEl = document.getElementById(`ktpTpsBody-${key}`);
+        const cardEl = document.getElementById(`ktpTpsCard-${key}`);
+        if (!bodyEl) return;
+
+        const akanBuka = !bodyEl.classList.contains('open');
+        bodyEl.classList.toggle('open', akanBuka);
+        if (cardEl) cardEl.classList.toggle('expanded', akanBuka);
+        btn.classList.toggle('active', akanBuka);
+        btn.textContent = akanBuka ? 'Tutup Rincian ▴' : 'Rincian ▾';
+
+        if (akanBuka) openedTpsKtpIds.add(key);
+        else openedTpsKtpIds.delete(key);
       });
     });
 
@@ -607,6 +738,7 @@ export async function render(container, profil) {
     }
 
     openedDesaKtpIds.add(String(desa_id));
+    if (tps_id) openedTpsKtpIds.add(`${desa_id}-tps-${tps_id}`);
     tutupModalEdit();
     showMsg(`Data KTP ${nama} berhasil diperbarui.`);
     await muatKtp();
@@ -659,6 +791,7 @@ export async function render(container, profil) {
     document.getElementById('ktpNama').value = '';
     document.getElementById('ktpAlamat').value = '';
     openedDesaKtpIds.add(String(desa_id));
+    if (tps_id) openedTpsKtpIds.add(`${desa_id}-tps-${tps_id}`);
     tutupModalInput();
     showMsg(`Berhasil menyimpan KTP: ${nama} (${nik})`);
     await muatKtp();
