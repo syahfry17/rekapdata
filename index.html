@@ -53,18 +53,22 @@
     .btn-admin-link {
       background: rgba(255, 255, 255, 0.16);
       color: #ffffff;
-      text-decoration: none;
       padding: 9px 14px;
       border-radius: 12px;
       font-size: 13px;
       font-weight: 700;
       border: 1px solid rgba(255, 255, 255, 0.28);
       white-space: nowrap;
-      transition: background 0.2s ease;
+      cursor: pointer;
+      transition: background 0.2s ease, transform 0.15s ease;
     }
 
     .btn-admin-link:hover {
       background: rgba(255, 255, 255, 0.26);
+    }
+
+    .btn-admin-link:active {
+      transform: scale(0.97);
     }
 
     /* GRID KARTU STATISTIK */
@@ -287,7 +291,7 @@
         <h2>PANTAU TIM</h2>
         <p id="statusLive">🟡 Menghubungkan...</p>
       </div>
-      <a href="admin.html" class="btn-admin-link">Panel Admin →</a>
+      <button type="button" id="btnPanelAdmin" class="btn-admin-link">Panel Admin →</button>
     </div>
 
     <!-- KARTU STATISTIK -->
@@ -296,7 +300,7 @@
         <h4>JUMLAH TIM</h4>
         <div class="angka" id="statTim">0</div>
         <div class="keterangan" id="ketTimWilayah">👥 Total Semua Tim</div>
-        <div class="sub-info" id="subTimInfo">Personel terdaftar</div>
+        <div class="sub-info" id="subTimInfo">Admin Desa • Pengepul • Saksi</div>
       </div>
 
       <div class="stat-card">
@@ -358,6 +362,16 @@
 
   <script type="module">
     import { supabase } from './js/config.js';
+
+    const btnPanelAdmin = document.getElementById('btnPanelAdmin');
+    btnPanelAdmin.addEventListener('click', () => {
+      try {
+        const targetUrl = new URL('./admin.html', window.location.href).href;
+        window.location.assign(targetUrl);
+      } catch (err) {
+        window.location.href = 'admin.html';
+      }
+    });
 
     let donutChart = null;
     let barChart = null;
@@ -601,9 +615,17 @@
         }
       });
 
-      const kandidatDesa = selectedKecId
-        ? cacheDesa.filter(d => String(d.kecamatan_id) === selectedKecId)
-        : cacheDesa;
+      // Deduplikasi berdasarkan ID desa agar tidak ada nama desa muncul ganda
+      const uniqueDesaMap = new Map();
+      cacheDesa.forEach(d => {
+        if (!uniqueDesaMap.has(d.id)) {
+          uniqueDesaMap.set(d.id, d);
+        }
+      });
+
+      const kandidatDesa = Array.from(uniqueDesaMap.values()).filter(d =>
+        !selectedKecId || String(d.kecamatan_id) === selectedKecId
+      );
 
       const ranked = kandidatDesa
         .map(d => {
@@ -676,7 +698,7 @@
           supabase.from('tps').select('id, desa_id'),
           supabase.from('data_ktp').select('id, desa_id, desa(kecamatan_id)', { count: 'exact' }),
           supabase.from('suara_tps').select('desa_id, suara_calon, suara_tidak_sah, desa(kecamatan_id)'),
-          supabase.from('users_tim').select('id, desa_id')
+          supabase.from('users_tim').select('id, desa_id, role')
         ]);
 
         if (errKec || errDesa || errTps || errKtp || errSuara) {
@@ -687,7 +709,11 @@
         cacheDesa = dDesa || [];
         cacheKtpRows = dKtpRows || [];
         cacheSuaraList = dSuara || [];
-        const timRows = errTim ? [] : (dTimRows || []);
+
+        // Hitung semua tim lapangan (admin desa, pengepul KTP, saksi; jika role kosong/berbeda tetap dihitung kecuali super_admin bila ada)
+        const rawTim = errTim ? [] : (dTimRows || []);
+        const timLapangan = rawTim.filter(u => u.role !== 'super_admin');
+        const daftarTimAktif = timLapangan.length > 0 ? timLapangan : rawTim;
 
         const pilihanLama = filterKecEl.value;
         filterKecEl.innerHTML =
@@ -695,7 +721,6 @@
           cacheKec.map(k => `<option value="${k.id}">📍 ${k.nama_kecamatan}</option>`).join('');
         filterKecEl.value = pilihanLama;
 
-        const ktpMasuk = Number(totalKtp ?? cacheKtpRows.length);
         const tpsList = dTpsRows || [];
         const tpsSemua = Number(totalTps ?? tpsList.length);
         const targetKtp = cacheDesa.reduce((acc, d) => acc + Number(d.target_ktp || 0), 0);
@@ -712,28 +737,37 @@
         const suaraTercapai = Math.min(totalSuara, targetKtp);
         const sisaTargetSuara = Math.max(0, targetKtp - totalSuara);
 
-        // Hitung jumlah tim per desa
+        // Hitung rincian peran & jumlah tim per desa
+        const jumlahAdminDesa = daftarTimAktif.filter(u => u.role === 'admin_desa').length;
+        const jumlahPengepul = daftarTimAktif.filter(u => u.role === 'pengepul').length;
+        const jumlahSaksi = daftarTimAktif.filter(u => u.role === 'saksi').length;
+
         const timPerDesaMap = new Map();
-        timRows.forEach(u => {
+        daftarTimAktif.forEach(u => {
           if (u.desa_id) {
             timPerDesaMap.set(u.desa_id, (timPerDesaMap.get(u.desa_id) || 0) + 1);
           }
         });
 
+        const ringkasanPeran = (jumlahAdminDesa + jumlahPengepul + jumlahSaksi) > 0
+          ? `Admin: ${jumlahAdminDesa} • KTP: ${jumlahPengepul} • Saksi: ${jumlahSaksi}`
+          : 'Admin Desa • Pengepul • Saksi';
+
         const nextSlidesTim = [
           {
-            jumlah: timRows.length,
+            jumlah: daftarTimAktif.length,
             label: '👥 Total Semua Tim',
-            sub: `KTP terkumpul: ${ktpMasuk.toLocaleString('id-ID')}`
+            sub: ringkasanPeran
           }
         ];
+
         cacheDesa.forEach(d => {
           const jmlTimDesa = timPerDesaMap.get(d.id) || 0;
           if (jmlTimDesa > 0) {
             nextSlidesTim.push({
               jumlah: jmlTimDesa,
               label: `🏘️ ${d.nama_desa}`,
-              sub: 'Anggota tim desa'
+              sub: 'Tim desa aktif'
             });
           }
         });
