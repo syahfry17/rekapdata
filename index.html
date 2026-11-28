@@ -134,7 +134,7 @@
     .bar-wrap {
       position: relative;
       width: 100%;
-      min-height: 250px;
+      min-height: 270px;
     }
 
     .footer-note {
@@ -192,9 +192,9 @@
       </div>
     </div>
 
-    <!-- GRAFIK BATANG PEROLEHAN SUARA -->
+    <!-- GRAFIK BATANG PERBANDINGAN KTP VS SUARA PER KECAMATAN -->
     <div class="chart-container">
-      <h3>📈 PEROLEHAN SUARA PER KECAMATAN</h3>
+      <h3>📈 KTP TERKUMPUL VS SUARA PER KECAMATAN</h3>
       <div class="bar-wrap">
         <canvas id="barChart"></canvas>
       </div>
@@ -257,18 +257,29 @@
         type: 'bar',
         data: {
           labels: [],
-          datasets: [{
-            label: 'Jumlah Suara',
-            data: [],
-            backgroundColor: '#1E4BB8',
-            borderRadius: 8
-          }]
+          datasets: [
+            {
+              label: 'KTP Terkumpul',
+              data: [],
+              backgroundColor: '#38bdf8',
+              borderRadius: 6
+            },
+            {
+              label: 'Suara Masuk',
+              data: [],
+              backgroundColor: '#0B2C70',
+              borderRadius: 6
+            }
+          ]
         },
         options: {
           responsive: true,
           maintainAspectRatio: false,
           plugins: {
-            legend: { display: false }
+            legend: {
+              position: 'bottom',
+              labels: { font: { weight: 'bold', size: 12 } }
+            }
           },
           scales: {
             y: {
@@ -294,7 +305,7 @@
           supabase.from('kecamatan').select('id, nama_kecamatan').order('nama_kecamatan', { ascending: true }),
           supabase.from('desa').select('id, nama_desa, kecamatan_id, target_ktp').order('nama_desa', { ascending: true }),
           supabase.from('tps').select('id, desa_id'),
-          supabase.from('data_ktp').select('id', { count: 'exact' }),
+          supabase.from('data_ktp').select('id, desa_id, desa(kecamatan_id)', { count: 'exact' }),
           supabase.from('suara_tps').select('suara_calon, desa(kecamatan_id)')
         ]);
 
@@ -302,7 +313,8 @@
           throw errKec || errDesa || errTps || errKtp || errSuara;
         }
 
-        const ktpMasuk = Number(totalKtp ?? (dKtpRows ? dKtpRows.length : 0));
+        const ktpRows = dKtpRows || [];
+        const ktpMasuk = Number(totalKtp ?? ktpRows.length);
         const tpsList = dTpsRows || [];
         const tpsSemua = Number(totalTps ?? tpsList.length);
         const targetKtp = (dDesa || []).reduce((acc, d) => acc + Number(d.target_ktp || 0), 0);
@@ -356,8 +368,26 @@
           donutChart.update();
         }
 
+        // Map desa_id -> kecamatan_id sebagai cadangan bila relasi bersarang kosong
+        const desaToKec = new Map();
+        (dDesa || []).forEach(d => {
+          if (d.kecamatan_id) desaToKec.set(d.id, d.kecamatan_id);
+        });
+
+        // Hitung KTP Terkumpul & Suara Masuk per Kecamatan
+        const ktpPerKec = new Map();
         const suaraPerKec = new Map();
-        (dKec || []).forEach(k => suaraPerKec.set(k.id, 0));
+        (dKec || []).forEach(k => {
+          ktpPerKec.set(k.id, 0);
+          suaraPerKec.set(k.id, 0);
+        });
+
+        ktpRows.forEach(row => {
+          const kecId = row.desa?.kecamatan_id || desaToKec.get(row.desa_id);
+          if (kecId && ktpPerKec.has(kecId)) {
+            ktpPerKec.set(kecId, ktpPerKec.get(kecId) + 1);
+          }
+        });
 
         suaraList.forEach(s => {
           const kecId = s.desa?.kecamatan_id;
@@ -367,11 +397,13 @@
         });
 
         const labelsKec = (dKec || []).map(k => k.nama_kecamatan);
+        const dataKtpKec = (dKec || []).map(k => ktpPerKec.get(k.id) || 0);
         const dataSuaraKec = (dKec || []).map(k => suaraPerKec.get(k.id) || 0);
 
         if (barChart) {
           barChart.data.labels = labelsKec;
-          barChart.data.datasets[0].data = dataSuaraKec;
+          barChart.data.datasets[0].data = dataKtpKec;
+          barChart.data.datasets[1].data = dataSuaraKec;
           barChart.update();
         }
 
